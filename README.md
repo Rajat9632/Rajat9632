@@ -1,36 +1,70 @@
 <!--
   Ink & Code — GitHub profile README for Rajat9632
-  Sketch portrait is the brand. Keep the monochrome energy.
+  Sketch portrait rendered in code. Keep the monochrome energy.
 -->
 
 <div align="center">
 
-  <img src="assets/rajat-sketch.jpeg" width="260" alt="Ink portrait of Rajat" />
+```
+                          ░▒▒▓▓▓▓▓▓▓▓▓▒▒░
+                     ░▒▓▓▓▓▓▓▒▒▒▒▒▒▓▓▓▓▓▓▒░
+                  ░▒▓▓▓▒▒░░          ░░▒▒▓▓▓▒░
+                ░▓▓▒░░  ░░▒▒▓▓▓▓▓▓▒▒░░  ░░▒▓▓░
+             ░▒▓▒░  ░▒▓████████████████▓▒░  ░▒▓▒░
+            ░▓▓░  ▒▓███▓▓▒▒░░░░░░▒▒▓▓███▓▒  ░▓▓░
+           ▒▓▒  ░▓██▓▒░              ░▒▓██▓░  ▒▓▒
+          ░▓▒  ▒██▓░   ░░▒▒▒▒▒▒▒▒░░   ░▓██▒  ▒▓░
+          ▒▓  ░██▓  ░▒▓████████████▓▒░  ▓██░  ▓▒
+         ░▓░  ██▒  ▒▓██▓▒░░    ░░▒▓██▓▒  ▒██  ░▓░
+         ▒▓  ▒█▓  ▓██▒░            ░▒██▓  ▓█▒  ▓▒
+         ▓░  ██░ ░██▓  ┌─────────┐  ▓██░ ░██  ░▓
+         ▓  ░██  ▓██   │ ◉     ◉ │   ██▓  ██░  ▓
+         ▓  ▒█▓  ██▒   └────┬────┘   ▒██  ▓█▒  ▓
+         ▓  ▒██  ██░        │        ░██  ██▒  ▓
+         ▓░  ██  ▒█▓    ·  ─┘  ·    ▓█▒  ██  ░▓
+         ▒▓  ██░  ██░               ░██  ░██  ▓▒
+          ▓  ▒██  ▒█▓   ╔═══════╗   ▓█▒  ██▒  ▓
+          ▓░  ██▒  ██░  ║ ▓▓▓▓▓ ║  ░██  ▒██  ░▓
+          ▒▓  ░██  ▒██  ╚═══════╝  ██▒  ██░  ▓▒
+           ▓▒  ██▒  ░██▒░       ░▒██░  ▒██  ▒▓
+           ░▓░  ▓██  ░▓██▓▒▒▒▒▓██▓░  ██▓  ░▓░
+            ░▓▒  ▒██▒  ░▒▓████▓▒░  ▒██▒  ▒▓░
+             ░▓▒  ░▓██▒░        ░▒██▓░  ▒▓░
+              ░▓▓░  ░▒▓███▓▓▓███▓▒░  ░▓▓░
+                ▒▓▒░   ░░▒▒▒▒▒▒░░  ░▒▓▒
+             ┌────▒▓▓▒░          ░▒▓▓▒────┐
+             │░░▒▓▓▒▒▓▓▓▓▓▓▓▓▓▓▓▓▒▒▓▓▒░░│
+             │▓▓▒░░ ░░░░░░░░░░░░░░ ░░▒▓▓│
+             │▓░ ┌──┐          ┌──┐   ░▓│
+             │▓  │··│  ░░░░░░  │··│    ▓│
+             │▓  └──┘          └──┘    ▓│
+             │▓░    ·    ··    ·     ░▓│
+             │▒▓░      ░░░░░░      ░▓▒│
+             └──▒▓▓░░░░░░░░░░░░░▓▓▒──┘
+```
 
-  <br/><br/>
+<h1>Rajat</h1>
 
-  <h1>Rajat</h1>
+<p><strong>ink &amp; code</strong></p>
 
-  <p><strong>ink &amp; code</strong></p>
+<a href="https://git.io/typing-svg">
+  <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=17&duration=3800&pause=1200&color=57606A&center=true&vCenter=true&width=680&height=34&lines=sketching+ideas+into+working+software;building+with+AI+%C2%B7+Python+%C2%B7+full-stack;curious+maker.+ink+%26+code.#gh-light-mode-only" alt="typing tagline" />
+  <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=17&duration=3800&pause=1200&color=ADBAC7&center=true&vCenter=true&width=680&height=34&lines=sketching+ideas+into+working+software;building+with+AI+%C2%B7+Python+%C2%B7+full-stack;curious+maker.+ink+%26+code.#gh-dark-mode-only" alt="typing tagline" />
+</a>
 
-  <a href="https://git.io/typing-svg">
-    <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=17&duration=3800&pause=1200&color=57606A&center=true&vCenter=true&width=680&height=34&lines=sketching+ideas+into+working+software;building+with+AI+%C2%B7+Python+%C2%B7+full-stack;curious+maker.+ink+%26+code.#gh-light-mode-only" alt="typing tagline" />
-    <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=17&duration=3800&pause=1200&color=ADBAC7&center=true&vCenter=true&width=680&height=34&lines=sketching+ideas+into+working+software;building+with+AI+%C2%B7+Python+%C2%B7+full-stack;curious+maker.+ink+%26+code.#gh-dark-mode-only" alt="typing tagline" />
-  </a>
+<br/>
 
-  <br/>
+<img src="assets/ink-divider.svg" width="420" alt="" />
 
-  <img src="assets/ink-divider.svg" width="420" alt="" />
+<p>
+  <em>Not another generic developer card — a builder who turns rough ideas into real products.</em>
+</p>
 
-  <p>
-    <em>Not another generic developer card — a builder who turns rough ideas into real products.</em>
-  </p>
-
-  <p>
-    <a href="https://github.com/Rajat9632"><img src="https://img.shields.io/badge/GitHub-Rajat9632-1F2328?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
-    &nbsp;
-    <a href="mailto:YOUR_EMAIL_HERE"><img src="https://img.shields.io/badge/say_hello-ink_%26_code-57606A?style=flat-square" alt="Email" /></a>
-  </p>
+<p>
+  <a href="https://github.com/Rajat9632"><img src="https://img.shields.io/badge/GitHub-Rajat9632-1F2328?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
+  &nbsp;
+  <a href="mailto:YOUR_EMAIL_HERE"><img src="https://img.shields.io/badge/say_hello-ink_%26_code-57606A?style=flat-square" alt="Email" /></a>
+</p>
 
 </div>
 
@@ -38,7 +72,7 @@
 
 ## ✎ on the desk
 
-Things I’m actively shaping — fewer projects, more craft.
+Things I'm actively shaping — fewer projects, more craft.
 
 <table>
   <tr>
@@ -107,7 +141,7 @@ Things I’m actively shaping — fewer projects, more craft.
 
 ## ✎ ink arcade
 
-A small easter egg tucked into this profile — tic-tac-toe on paper, against an AI that doesn't miss.
+A hidden easter egg tucked into this profile — tic-tac-toe on paper, against an AI that doesn't miss.
 
 <p align="center">
   <a href="https://rajat9632.github.io/Rajat9632/arcade/index.html">
@@ -127,8 +161,8 @@ A small easter egg tucked into this profile — tic-tac-toe on paper, against an
 
   <p>
     <sub>
-      <b>fun fact under the sketch:</b> that portrait is ink, not a filter —
-      same energy I try to bring to code: deliberate lines, a little texture, human.
+      <b>fun fact under the sketch:</b> that portrait above is pure Unicode —
+      same energy I bring to code: deliberate strokes, a little texture, human.
     </sub>
   </p>
 
