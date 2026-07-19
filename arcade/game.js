@@ -163,6 +163,8 @@ function startNewRound() {
   state.winningCombo = null;
   state.enteredMovingPhase = false;
   state.positionVisits = new Map();
+  elements.gameScreen.classList.remove("is-complete");
+  elements.endOverlay.classList.remove("is-visible");
   elements.endOverlay.hidden = true;
   elements.exploreLink.hidden = true;
   elements.aiMessage.textContent = "";
@@ -329,6 +331,11 @@ function playAiTurn() {
   });
   state.aiMessageIndex = (state.aiMessageIndex + 1) % AI_LINES.length;
   elements.aiMessage.textContent = AI_LINES[state.aiMessageIndex];
+  const winningMove = evaluateBoard(state.board);
+  if (winningMove) {
+    finishGame(winningMove);
+    return;
+  }
   finishTurn(AI_MARK);
 }
 
@@ -351,6 +358,7 @@ function finishGame(outcome) {
   state.isPlayerTurn = false;
   state.selectedIndex = null;
   elements.thinking.hidden = true;
+  elements.gameScreen.classList.add("is-complete");
 
   if (outcome.type === "win") {
     state.winningCombo = outcome.combo;
@@ -402,6 +410,11 @@ function showEndOverlay(outcome) {
     elements.endSubtitle.textContent = "Try a different route through the moving phase.";
     elements.exploreLink.hidden = false;
   }
+  elements.phaseLabel.textContent = "Round complete";
+  elements.turnText.textContent = outcome.type === "draw"
+    ? "No more moves in this round."
+    : (outcome.winner === AI_MARK ? "AI wins this round." : "You win this round.");
+  elements.endOverlay.classList.add("is-visible");
   elements.endOverlay.hidden = false;
 }
 
