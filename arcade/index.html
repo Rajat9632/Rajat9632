@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ink Arcade | Challenge the Creator</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="arcade-shell">
+    <div class="paper-texture" aria-hidden="true"></div>
+    <div class="hatch-layer" aria-hidden="true"></div>
+    <div id="particleLayer" class="particle-layer" aria-hidden="true"></div>
+
+    <header class="top-bar">
+      <p class="brand">INK ARCADE // TIC-TAC-TOE</p>
+      <button
+        id="muteToggle"
+        class="ghost-btn"
+        type="button"
+        aria-label="Toggle sound effects"
+        aria-pressed="false"
+      >
+        Sound On
+      </button>
+    </header>
+
+    <main class="game-stage">
+      <section id="bootScreen" class="screen boot-screen is-active" aria-live="polite">
+        <p class="insert-coin">PRESS START</p>
+        <button id="startBtn" class="primary-btn" type="button">Start</button>
+      </section>
+
+      <section id="introScreen" class="screen intro-screen" aria-hidden="true">
+        <h1>Challenge the Creator</h1>
+        <p>Can you beat my AI on paper?</p>
+      </section>
+
+      <section id="gameScreen" class="screen game-screen" aria-hidden="true">
+        <div class="hud">
+          <p id="turnText" class="turn-text" aria-live="polite">Your move: place X.</p>
+          <p id="aiMessage" class="ai-message" aria-live="polite"></p>
+        </div>
+
+        <div class="game-layout">
+          <div class="board-shell">
+            <div id="board" class="board" role="grid" aria-label="Tic-Tac-Toe board"></div>
+            <div id="winningLine" class="winning-line" aria-hidden="true"></div>
+            <div id="thinkingIndicator" class="thinking-indicator" role="status" aria-live="polite" hidden>
+              AI thinking<span class="dots" aria-hidden="true"></span>
+            </div>
+          </div>
+
+          <aside class="side-panel" aria-label="Game stats and achievements">
+            <section class="panel-card">
+              <h2>Session Stats</h2>
+              <dl class="stat-grid">
+                <div><dt>Games Played</dt><dd id="statGames">0</dd></div>
+                <div><dt>Wins</dt><dd id="statWins">0</dd></div>
+                <div><dt>Draws</dt><dd id="statDraws">0</dd></div>
+                <div><dt>Losses</dt><dd id="statLosses">0</dd></div>
+              </dl>
+            </section>
+
+            <section class="panel-card">
+              <h2>Achievements</h2>
+              <ul class="achievement-list">
+                <li id="ach-first-game">First Game</li>
+                <li id="ach-first-draw">First Draw</li>
+                <li id="ach-persistent-challenger">Persistent Challenger (10 games)</li>
+                <li id="ach-master-survivor">Master Survivor (5 draws)</li>
+              </ul>
+            </section>
+          </aside>
+        </div>
+
+        <div id="endOverlay" class="end-overlay" role="dialog" aria-live="assertive" aria-modal="false" hidden>
+          <h2 id="endTitle"></h2>
+          <p id="endSubtitle"></p>
+          <a
+            id="exploreProjectsLink"
+            class="explore-link"
+            href="https://github.com/Rajat9632?tab=repositories"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+          >
+            Explore AI Projects
+          </a>
+          <button id="playAgainBtn" class="primary-btn" type="button">Play Again</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="./game.js" defer></script>
+</body>
+</html>

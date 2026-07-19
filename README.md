@@ -105,6 +105,22 @@ Things I’m actively shaping — fewer projects, more craft.
 
 <br/>
 
+## ✎ ink arcade
+
+A small easter egg tucked into this profile — tic-tac-toe on paper, against an AI that doesn't miss.
+
+<p align="center">
+  <a href="https://rajat9632.github.io/Rajat9632/arcade/index.html">
+    <img src="https://img.shields.io/badge/play-ink_arcade-1F2328?style=flat-square&labelColor=57606A&color=24292F" alt="Play Ink Arcade" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>Challenge the Creator · perfect AI · draw or lose (probably lose)</sub>
+</p>
+
+<br/>
+
 <div align="center">
 
   <img src="assets/ink-divider.svg" width="320" alt="" />
