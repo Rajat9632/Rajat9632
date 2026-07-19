@@ -307,7 +307,7 @@ function registerMovingPhaseIfNeeded() {
 function recordRepeatedPosition() {
   if (getPhase() !== "moving") return false;
   const turn = state.isPlayerTurn ? PLAYER_MARK : AI_MARK;
-  const key = state.board.join("") + "|" + turn;
+  const key = serializeBoard(state.board) + "|" + turn;
   const visits = (state.positionVisits.get(key) || 0) + 1;
   state.positionVisits.set(key, visits);
   return visits >= REPETITION_LIMIT;
@@ -434,7 +434,7 @@ function solveGameState(node) {
     return getMovingStateValue(node.board, node.turn);
   }
 
-  const memoKey = node.board.join("") + "|" + node.placed.X + node.placed.O + "|" + node.turn;
+  const memoKey = serializeBoard(node.board) + "|" + node.placed.X + node.placed.O + "|" + node.turn;
   if (placementSolverMemo.has(memoKey)) return placementSolverMemo.get(memoKey);
   const actions = orderActions(getLegalActions(node.board, node.placed, node.turn));
   let value = node.turn === AI_MARK ? -1 : 1;
@@ -535,7 +535,11 @@ function buildMovementSolverTable() {
 }
 
 function createMovementKey(board, turn) {
-  return board.join("") + "|" + turn;
+  return serializeBoard(board) + "|" + turn;
+}
+
+function serializeBoard(board) {
+  return board.map((mark) => mark || ".").join("");
 }
 
 function forEachCombination(items, count, callback) {
