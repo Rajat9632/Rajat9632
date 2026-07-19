@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ink Arcade | Challenge the Creator</title>
+  <title>Ink Arcade | Three Token Tic-Tac-Toe</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -13,7 +13,7 @@
     <div id="particleLayer" class="particle-layer" aria-hidden="true"></div>
 
     <header class="top-bar">
-      <p class="brand">INK ARCADE // TIC-TAC-TOE</p>
+      <p class="brand">INK ARCADE // THREE TOKEN TIC-TAC-TOE</p>
       <button
         id="muteToggle"
         class="ghost-btn"
@@ -33,12 +33,15 @@
 
       <section id="introScreen" class="screen intro-screen" aria-hidden="true">
         <h1>Challenge the Creator</h1>
-        <p>Can you beat my AI on paper?</p>
+        <p>Place three tokens. Then move any token to any empty square.</p>
       </section>
 
       <section id="gameScreen" class="screen game-screen" aria-hidden="true">
         <div class="hud">
-          <p id="turnText" class="turn-text" aria-live="polite">Your move: place X.</p>
+          <div class="phase-row">
+            <p id="phaseLabel" class="phase-label">Phase 1 · placing tokens</p>
+            <p id="turnText" class="turn-text" aria-live="polite">Your move: place X.</p>
+          </div>
           <p id="aiMessage" class="ai-message" aria-live="polite"></p>
         </div>
 
@@ -59,7 +62,18 @@
                 <div><dt>Wins</dt><dd id="statWins">0</dd></div>
                 <div><dt>Draws</dt><dd id="statDraws">0</dd></div>
                 <div><dt>Losses</dt><dd id="statLosses">0</dd></div>
+                <div><dt>Moving Rounds</dt><dd id="statMovingRounds">0</dd></div>
               </dl>
+            </section>
+
+            <section class="panel-card rules-card">
+              <h2>How it works</h2>
+              <ol>
+                <li>Take turns placing three tokens each.</li>
+                <li>After six placements, select your token.</li>
+                <li>Move it to <strong>any</strong> empty square.</li>
+                <li>Make three in a row to win.</li>
+              </ol>
             </section>
 
             <section class="panel-card">
@@ -69,6 +83,7 @@
                 <li id="ach-first-draw">First Draw</li>
                 <li id="ach-persistent-challenger">Persistent Challenger (10 games)</li>
                 <li id="ach-master-survivor">Master Survivor (5 draws)</li>
+                <li id="ach-first-move">First Move Phase</li>
               </ul>
             </section>
           </aside>
