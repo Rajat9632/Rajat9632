@@ -1,761 +1,576 @@
-"use strict";
+bindEvents();
+import { AI_TOTAL_GAME_TREES, chooseOptimalMove } from "./ai.js";
+import { animateBootScreen, animateBoardReveal, attachButtonRipple, createParticleField, createAmbientMotion, highlightWinningLine, sleep, updateResultAccent } from "./animation.js";
+import { createSoundEngine } from "./sound.js";
 
-/* ═══════════════════════════════════════════════════
-   INK ARCADE — Game Engine
-   "Challenge the Creator" · Tic-Tac-Toe
-   ═══════════════════════════════════════════════════ */
-
-
-/* ── CONSTANTS ──────────────────────────────────── */
-
-const PLAYER = "X";
-const AI     = "O";
-
+const PLAYER_MARK = "X";
+const AI_MARK = "O";
 const WIN_LINES = [
-  [0,1,2], [3,4,5], [6,7,8],  // rows
-  [0,3,6], [1,4,7], [2,5,8],  // cols
-  [0,4,8], [2,4,6]            // diags
+  [0, 1, 2],
+  [3, 4, 5],
+  [6, 7, 8],
+  [0, 3, 6],
+  [1, 4, 7],
+  [2, 5, 8],
+  [0, 4, 8],
+  [2, 4, 6]
 ];
 
-const TAUNTS = {
-  opening: [
-    "Let's see what you've got.",
-    "The ink is watching.",
-    "Every move is permanent.",
-  ],
-  midgame: [
-    "Interesting choice.",
-    "Predictable.",
-    "I've seen this before.",
-    "Not bad. Not good either.",
-    "Bold.",
-    "Calculated.",
-  ],
-  aiWin: [
-    "The ink never lies.",
-    "Better luck next sketch.",
-    "I warned you.",
-    "Every line led here.",
-  ],
-  draw: [
-    "You survived. Barely.",
-    "Stalemate. Respect.",
-    "Not many manage that.",
-    "A draw is a mark of discipline.",
-  ],
+const AI_LINES = [
+  "Interesting.",
+  "Expected.",
+  "You saw that.",
+  "Thinking...",
+  "Optimal response found.",
+  "Nice opening.",
+  "Mistake detected.",
+  "Searching..."
+];
+
+const STORAGE_KEYS = {
+  stats: "quantum-grid:stats",
+  achievements: "quantum-grid:achievements",
+  volume: "quantum-grid:volume",
+  muted: "quantum-grid:muted"
 };
 
-const STORAGE_KEY = "ink-arcade:state";
-
-
-/* ── STATE ──────────────────────────────────────── */
+const elements = {
+  bootScreen: document.getElementById("bootScreen"),
+  bootLine: document.getElementById("bootLine"),
+  bootPercent: document.getElementById("bootPercent"),
+  bootFeed: document.getElementById("bootFeed"),
+  introScreen: document.getElementById("introScreen"),
+  gameScreen: document.getElementById("gameScreen"),
+  startBtn: document.getElementById("startBtn"),
+  playAgainBtn: document.getElementById("playAgainBtn"),
+  board: document.getElementById("board"),
+  winningLine: document.getElementById("winningLine"),
+  thinking: document.getElementById("thinkingIndicator"),
+  turnText: document.getElementById("turnText"),
+  aiMessage: document.getElementById("aiMessage"),
+  endOverlay: document.getElementById("endOverlay"),
+  endTitle: document.getElementById("endTitle"),
+  endSubtitle: document.getElementById("endSubtitle"),
+  achievementBanner: document.getElementById("achievementBanner"),
+  exploreLink: document.getElementById("exploreProjectsLink"),
+  muteToggle: document.getElementById("muteToggle"),
+  volumeSlider: document.getElementById("volumeSlider"),
+  particleLayer: document.getElementById("particleLayer"),
+  toastStack: document.getElementById("toastStack"),
+  statGames: document.getElementById("statGames"),
+  statDraws: document.getElementById("statDraws"),
+  statLosses: document.getElementById("statLosses"),
+  statStreak: document.getElementById("statStreak"),
+  statFastestDraw: document.getElementById("statFastestDraw"),
+  achFirstMatch: document.getElementById("ach-first-match"),
+  achPersistentChallenger: document.getElementById("ach-persistent-challenger"),
+  achFiveDraws: document.getElementById("ach-five-draws"),
+  achTenGames: document.getElementById("ach-ten-games"),
+  achSurvivor: document.getElementById("ach-survivor"),
+  achImpossibleChallenger: document.getElementById("ach-impossible-challenger")
+};
 
 const state = {
   board: Array(9).fill(""),
-  isPlayerTurn: true,
-  gameActive: false,
-  aiTimer: null,
-  moveCount: 0,
-  winCombo: null,
-  stats: { games: 0, wins: 0, draws: 0, losses: 0, bestStreak: 0, currentStreak: 0 },
-  milestones: { first: false, draw: false, tenacious: false, master: false },
-  muted: false,
+  active: false,
+  playerTurn: true,
+  pendingAiTimeout: null,
+  pendingAiTicker: null,
+  roundStartedAt: 0,
+  focusIndex: 0,
+  aiTurnCount: 0,
+  stats: loadFromSession(STORAGE_KEYS.stats, {
+    gamesPlayed: 0,
+    draws: 0,
+    losses: 0,
+    currentStreak: 0,
+    fastestDrawMs: null
+  }),
+  achievements: loadFromSession(STORAGE_KEYS.achievements, {
+    firstMatch: false,
+    persistentChallenger: false,
+    fiveDraws: false,
+    tenGames: false,
+    survivor: false,
+    impossibleChallenger: false
+  }),
+  muted: localStorage.getItem(STORAGE_KEYS.muted) === "true",
+  volume: clamp(Number(localStorage.getItem(STORAGE_KEYS.volume) ?? "72"), 0, 100) / 100
 };
 
+const sound = createSoundEngine({
+  muted: state.muted,
+  volume: state.volume,
+  onChange: persistSoundPreferences
+});
 
-/* ── AUDIO ENGINE ───────────────────────────────── */
+const cells = createBoardCells();
+createParticleField(elements.particleLayer, 24);
+createAmbientMotion(document.documentElement);
+updateSoundControls();
+updateStatsUI();
+updateAchievementsUI();
+bindEvents();
+runBootSequence();
 
-const audio = {
-  ctx: null,
+function bindEvents() {
+  elements.startBtn.addEventListener("click", beginArcadeSession);
+  elements.playAgainBtn.addEventListener("click", restartRound);
+  elements.muteToggle.addEventListener("click", handleMuteToggle);
+  elements.volumeSlider.addEventListener("input", handleVolumeChange);
 
-  init() {
-    if (this.ctx) return;
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (Ctx) this.ctx = new Ctx();
-  },
-
-  resume() {
-    if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {});
-  },
-
-  play(freq, dur = 0.09, type = "sine", vol = 0.04, slide = null) {
-    if (state.muted || !this.ctx) return;
-    this.resume();
-    const now = this.ctx.currentTime;
-    const osc  = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, now);
-    if (slide) osc.frequency.linearRampToValueAtTime(slide, now + dur);
-
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(vol, now + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-    osc.connect(gain).connect(this.ctx.destination);
-    osc.start(now);
-    osc.stop(now + dur + 0.01);
-  },
-
-  placeX()   { this.play(520, 0.07, "triangle", 0.04); },
-  placeO()   { this.play(340, 0.09, "sawtooth", 0.03, 280); },
-  win()      { this.play(680, 0.12, "triangle", 0.035, 820); },
-  lose()     { this.play(200, 0.15, "square", 0.04, 140); },
-  draw()     { this.play(430, 0.11, "sine", 0.035); },
-  click()    { this.play(380, 0.06, "triangle", 0.03); },
-  unlock()   { this.play(600, 0.08, "sine", 0.03, 800); },
-  enter()    { this.play(280, 0.12, "square", 0.04, 380); },
-};
-
-
-/* ── DOM REFS ───────────────────────────────────── */
-
-const $ = (id) => document.getElementById(id);
-
-const dom = {
-  phaseDiscovery: $("phaseDiscovery"),
-  phaseChallenge: $("phaseChallenge"),
-  phaseGame:      $("phaseGame"),
-
-  inkCanvas:  $("inkCanvas"),
-  enterBtn:   $("enterBtn"),
-  beginBtn:   $("beginBtn"),
-
-  board:       $("board"),
-  winLine:     $("winLine"),
-  winStroke:   $("winLineStroke"),
-  thinkingBar: $("thinkingBar"),
-  turnText:    $("turnIndicator"),
-  aiTaunt:     $("aiTaunt"),
-
-  muteToggle:  $("muteToggle"),
-  soundOnIcon: $("soundOnIcon"),
-  soundOffIcon:$("soundOffIcon"),
-
-  scoreWins:   $("scoreWins"),
-  scoreDraws:  $("scoreDraws"),
-  scoreLosses: $("scoreLosses"),
-  statGames:   $("statGames"),
-  statStreak:  $("statStreak"),
-
-  endOverlay:  $("endOverlay"),
-  endIcon:     $("endIcon"),
-  endTitle:    $("endTitle"),
-  endSubtitle: $("endSubtitle"),
-  exploreLink: $("exploreLink"),
-  playAgainBtn:$("playAgainBtn"),
-
-  gameStage:   document.querySelector(".game-stage"),
-  ambientLayer:$("ambientParticles"),
-
-  msFirst:     $("ms-first"),
-  msDraw:      $("ms-draw"),
-  msTenacious: $("ms-tenacious"),
-  msMaster:    $("ms-master"),
-};
-
-
-/* ── CELLS ──────────────────────────────────────── */
-
-const cells = [];
-
-function createBoard() {
-  for (let i = 0; i < 9; i++) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "cell";
-    btn.dataset.index = i;
-    btn.setAttribute("role", "gridcell");
-    btn.setAttribute("aria-label", `Cell ${i + 1}, empty`);
-    btn.addEventListener("click", onCellClick);
-    dom.board.appendChild(btn);
-    cells.push(btn);
-  }
-}
-
-
-/* ── INK CANVAS — ambient background ────────────── */
-
-function initInkCanvas() {
-  const canvas = dom.inkCanvas;
-  const ctx = canvas.getContext("2d");
-  let w, h, dots;
-  let animId;
-
-  function resize() {
-    w = canvas.width  = window.innerWidth;
-    h = canvas.height = window.innerHeight;
-  }
-
-  function createDots() {
-    dots = [];
-    const count = Math.floor((w * h) / 18000);
-    for (let i = 0; i < count; i++) {
-      dots.push({
-        x: Math.random() * w,
-        y: Math.random() * h,
-        r: 0.5 + Math.random() * 1.5,
-        vx: (Math.random() - 0.5) * 0.15,
-        vy: (Math.random() - 0.5) * 0.15,
-        alpha: 0.05 + Math.random() * 0.15,
-      });
+  window.addEventListener("resize", () => {
+    if (state.lastWinningLine) {
+      highlightWinningLine(elements.board, elements.winningLine, state.lastWinningLine);
     }
-  }
-
-  function draw() {
-    ctx.clearRect(0, 0, w, h);
-
-    const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const color = isDark ? "200,196,188" : "26,26,26";
-
-    for (const d of dots) {
-      d.x += d.vx;
-      d.y += d.vy;
-      if (d.x < -10) d.x = w + 10;
-      if (d.x > w + 10) d.x = -10;
-      if (d.y < -10) d.y = h + 10;
-      if (d.y > h + 10) d.y = -10;
-
-      ctx.beginPath();
-      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(${color},${d.alpha})`;
-      ctx.fill();
-    }
-
-    // Subtle connecting lines between close dots
-    for (let i = 0; i < dots.length; i++) {
-      for (let j = i + 1; j < dots.length; j++) {
-        const dx = dots[i].x - dots[j].x;
-        const dy = dots[i].y - dots[j].y;
-        const dist = dx * dx + dy * dy;
-        if (dist < 6400) { // 80px
-          const alpha = (1 - dist / 6400) * 0.06;
-          ctx.beginPath();
-          ctx.moveTo(dots[i].x, dots[i].y);
-          ctx.lineTo(dots[j].x, dots[j].y);
-          ctx.strokeStyle = `rgba(${color},${alpha})`;
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-        }
-      }
-    }
-
-    animId = requestAnimationFrame(draw);
-  }
-
-  resize();
-  createDots();
-  draw();
-
-  window.addEventListener("resize", () => { resize(); createDots(); });
-
-  // Stop canvas when leaving discovery phase
-  return () => { cancelAnimationFrame(animId); };
-}
-
-
-/* ── AMBIENT PARTICLES (game phase) ─────────────── */
-
-function createAmbientParticles() {
-  const count = 18;
-  for (let i = 0; i < count; i++) {
-    const dot = document.createElement("span");
-    dot.className = "ambient-dot";
-    const size = 1 + Math.random() * 2.5;
-    dot.style.cssText = `
-      left: ${Math.random() * 100}%;
-      bottom: -10px;
-      width: ${size}px;
-      height: ${size}px;
-      --dur: ${10 + Math.random() * 14}s;
-      --delay: ${Math.random() * 10}s;
-    `;
-    dom.ambientLayer.appendChild(dot);
-  }
-}
-
-
-/* ── PHASE TRANSITIONS ──────────────────────────── */
-
-let stopCanvas = null;
-
-function showPhase(phaseEl) {
-  document.querySelectorAll(".phase").forEach(p => {
-    p.classList.remove("is-active");
-    p.setAttribute("aria-hidden", "true");
   });
 
-  // Small delay so outgoing transition starts before incoming
-  setTimeout(() => {
-    phaseEl.classList.add("is-active");
-    phaseEl.setAttribute("aria-hidden", "false");
-  }, 80);
+  document.addEventListener("keydown", handleGlobalShortcut);
 }
 
+async function runBootSequence() {
+  const frames = [
+    [0, "Booting Quantum Grid..."],
+    [12, "Loading portfolio arcade shell..."],
+    [34, "Spinning up synthesis layer..."],
+    [57, "Training creator AI..."],
+    [81, "Finalizing scanline matrix..."],
+    [100, "System ready."]
+  ];
 
-/* ── DISCOVERY SEQUENCE ─────────────────────────── */
+  await animateBootScreen({
+    bootLine: elements.bootLine,
+    bootPercent: elements.bootPercent,
+    bootFeed: elements.bootFeed,
+    frames,
+    interval: 320
+  });
 
-function runDiscoverySequence() {
-  const line1 = $("discoveryLine1");
-  const line2 = $("discoveryLine2");
-  const enterBtn = dom.enterBtn;
-
-  // Staggered reveal
-  setTimeout(() => line1.classList.add("is-revealed"), 400);
-  setTimeout(() => line2.classList.add("is-revealed"), 1400);
-  setTimeout(() => {
-    enterBtn.classList.add("is-revealed");
-    enterBtn.style.opacity = "1";
-    enterBtn.style.transform = "translateY(0)";
-  }, 2400);
+  elements.bootScreen.classList.remove("is-active");
+  elements.bootScreen.setAttribute("aria-hidden", "true");
+  elements.introScreen.classList.add("is-active");
+  elements.introScreen.setAttribute("aria-hidden", "false");
 }
 
+async function beginArcadeSession(event) {
+  attachButtonRipple(event);
+  await sound.unlock();
+  sound.playBootRise();
+  elements.introScreen.classList.remove("is-active");
+  elements.introScreen.setAttribute("aria-hidden", "true");
+  elements.gameScreen.classList.add("is-active");
+  elements.gameScreen.setAttribute("aria-hidden", "false");
+  animateBoardReveal(elements.board);
+  restartRound();
+}
 
-/* ── GAME FLOW ──────────────────────────────────── */
+function restartRound(event) {
+  if (event) {
+    attachButtonRipple(event);
+    sound.playClick();
+  }
 
-function startNewRound() {
-  if (state.aiTimer) clearTimeout(state.aiTimer);
-
+  clearAiTimers();
   state.board = Array(9).fill("");
-  state.isPlayerTurn = true;
-  state.gameActive = true;
-  state.moveCount = 0;
-  state.winCombo = null;
+  state.active = true;
+  state.playerTurn = true;
+  state.roundStartedAt = performance.now();
+  state.focusIndex = 0;
+  state.lastWinningLine = null;
 
-  dom.endOverlay.hidden = true;
-  dom.endOverlay.classList.remove("is-visible");
-  dom.exploreLink.hidden = true;
-  dom.aiTaunt.textContent = pickRandom(TAUNTS.opening);
-  dom.turnText.textContent = "Your move";
-  dom.thinkingBar.hidden = true;
-  dom.thinkingBar.classList.remove("is-visible");
-  dom.winLine.classList.remove("is-drawn");
+  elements.endOverlay.hidden = true;
+  elements.exploreLink.hidden = true;
+  elements.achievementBanner.hidden = true;
+  elements.aiMessage.textContent = "";
+  elements.turnText.textContent = "Your move. Place X.";
+  elements.thinking.hidden = true;
+  elements.winningLine.classList.remove("is-visible");
+  updateResultAccent(null);
 
-  cells.forEach((c, i) => {
-    c.disabled = false;
-    c.innerHTML = "";
-    c.className = "cell";
-    c.setAttribute("aria-label", `Cell ${i + 1}, empty`);
+  cells.forEach((cell, index) => {
+    cell.textContent = "";
+    cell.className = "cell";
+    cell.disabled = false;
+    cell.tabIndex = index === 0 ? 0 : -1;
+    cell.setAttribute("aria-label", `Cell ${index + 1}, empty`);
   });
+
+  cells[0]?.focus();
 }
 
-function onCellClick(e) {
-  const cell = e.currentTarget;
-  const idx = Number(cell.dataset.index);
+function handleGlobalShortcut(event) {
+  if (!state.active || !elements.gameScreen.classList.contains("is-active")) {
+    return;
+  }
 
-  if (!state.gameActive || !state.isPlayerTurn || state.board[idx]) return;
+  const key = event.key;
+  if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " "].includes(key)) {
+    return;
+  }
 
-  placeMove(idx, PLAYER);
-  audio.placeX();
-  spawnRipple(cell, e);
-  state.moveCount++;
+  const focusedCell = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+  if (!focusedCell || !focusedCell.classList.contains("cell")) {
+    return;
+  }
 
-  const result = checkBoard(state.board);
-  if (result) { endGame(result); return; }
+  if (key === "Enter" || key === " ") {
+    event.preventDefault();
+    focusedCell.click();
+    return;
+  }
 
-  state.isPlayerTurn = false;
-  lockBoard(true);
-  dom.turnText.textContent = "AI is thinking";
-  dom.thinkingBar.hidden = false;
-  dom.thinkingBar.classList.add("is-visible");
+  event.preventDefault();
+  const currentIndex = Number(focusedCell.dataset.index);
+  const nextIndex = moveFocusIndex(currentIndex, key);
+  focusCell(nextIndex);
+}
 
-  const delay = 350 + Math.random() * 300;
-  state.aiTimer = setTimeout(() => {
-    if (!state.gameActive) return;
-    aiTurn();
+function moveFocusIndex(currentIndex, key) {
+  const deltaMap = {
+    ArrowLeft: -1,
+    ArrowRight: 1,
+    ArrowUp: -3,
+    ArrowDown: 3
+  };
+
+  const tentative = currentIndex + (deltaMap[key] ?? 0);
+  if (tentative < 0 || tentative > 8) {
+    return currentIndex;
+  }
+
+  if ((key === "ArrowLeft" && currentIndex % 3 === 0) || (key === "ArrowRight" && currentIndex % 3 === 2)) {
+    return currentIndex;
+  }
+
+  return tentative;
+}
+
+function focusCell(index) {
+  if (index < 0 || index > 8 || cells[index].disabled) {
+    return;
+  }
+
+  cells[state.focusIndex]?.setAttribute("tabindex", "-1");
+  state.focusIndex = index;
+  cells[index].setAttribute("tabindex", "0");
+  cells[index].focus();
+}
+
+function handleCellSelect(event) {
+  const cell = event.currentTarget;
+  const index = Number(cell.dataset.index);
+
+  if (!state.active || !state.playerTurn || state.board[index]) {
+    return;
+  }
+
+  attachButtonRipple(event);
+  sound.playPlace();
+  commitMove(index, PLAYER_MARK);
+
+  const playerOutcome = evaluateBoard(state.board);
+  if (playerOutcome) {
+    finalizeRound(playerOutcome);
+    return;
+  }
+
+  state.playerTurn = false;
+  lockBoard();
+  beginAiThinkingCycle();
+}
+
+function beginAiThinkingCycle() {
+  elements.turnText.textContent = "AI is thinking.";
+  elements.thinking.hidden = false;
+  const thinkingMessages = ["Analyzing...", "Searching...", "Calculating...", "Evaluating..."];
+  let messageIndex = 0;
+
+  elements.aiMessage.textContent = thinkingMessages[messageIndex];
+  state.pendingAiTicker = window.setInterval(() => {
+    messageIndex = (messageIndex + 1) % thinkingMessages.length;
+    elements.aiMessage.textContent = thinkingMessages[messageIndex];
+  }, 140);
+
+  const delay = randomInt(400, 700);
+  state.pendingAiTimeout = window.setTimeout(async () => {
+    clearInterval(state.pendingAiTicker);
+    state.pendingAiTicker = null;
+    elements.aiMessage.textContent = `Found ${AI_TOTAL_GAME_TREES.toLocaleString()} possibilities.`;
+    await sleep(160);
+    if (!state.active) {
+      return;
+    }
+    executeAiMove();
   }, delay);
 }
 
-function aiTurn() {
-  state.aiTimer = null;
-  dom.thinkingBar.classList.remove("is-visible");
-  setTimeout(() => { dom.thinkingBar.hidden = true; }, 200);
+function executeAiMove() {
+  elements.thinking.hidden = true;
+  state.pendingAiTimeout = null;
 
-  const move = bestMove(state.board.slice());
-  placeMove(move, AI);
-  audio.placeO();
-  state.moveCount++;
+  const outcome = chooseOptimalMove(state.board.slice(), AI_MARK, PLAYER_MARK);
+  commitMove(outcome.move, AI_MARK);
+  state.aiTurnCount += 1;
+  sound.playAiMove();
 
-  dom.aiTaunt.textContent = pickRandom(TAUNTS.midgame);
+  const aiLine = AI_LINES[state.aiTurnCount % AI_LINES.length];
+  elements.aiMessage.textContent = aiLine;
 
-  const result = checkBoard(state.board);
-  if (result) { endGame(result); return; }
+  const boardOutcome = evaluateBoard(state.board);
+  if (boardOutcome) {
+    finalizeRound(boardOutcome);
+    return;
+  }
 
-  state.isPlayerTurn = true;
-  dom.turnText.textContent = "Your move";
-  lockBoard(false);
+  state.playerTurn = true;
+  elements.turnText.textContent = "Your move. Place X.";
+  unlockAvailableCells();
+  focusCell(nextOpenCell());
 }
 
-function placeMove(idx, mark) {
-  state.board[idx] = mark;
-  const cell = cells[idx];
-  cell.classList.add(mark === PLAYER ? "mark-x" : "mark-o");
+function commitMove(index, mark) {
+  state.board[index] = mark;
+  const cell = cells[index];
+  cell.textContent = mark;
+  cell.classList.add(mark === PLAYER_MARK ? "mark-x" : "mark-o");
+  cell.classList.add("placed");
   cell.disabled = true;
-  cell.setAttribute("aria-label", `Cell ${idx + 1}, ${mark}`);
-
-  // Create animated mark element
-  const markEl = document.createElement("div");
-  markEl.className = `cell__mark cell__mark--${mark.toLowerCase()}`;
-  cell.appendChild(markEl);
+  cell.tabIndex = -1;
+  cell.setAttribute("aria-label", `Cell ${index + 1}, ${mark}`);
 }
 
-function spawnRipple(cell, e) {
-  const rect = cell.getBoundingClientRect();
-  const ripple = document.createElement("span");
-  ripple.className = "cell-ripple";
-  const size = Math.max(rect.width, rect.height);
-  ripple.style.width = ripple.style.height = size + "px";
-  ripple.style.left = (e.clientX - rect.left - size / 2) + "px";
-  ripple.style.top  = (e.clientY - rect.top  - size / 2) + "px";
-  cell.appendChild(ripple);
-  ripple.addEventListener("animationend", () => ripple.remove());
-}
-
-function lockBoard(locked) {
-  cells.forEach((c, i) => {
-    c.disabled = locked || Boolean(state.board[i]) || !state.gameActive;
-  });
-}
-
-
-/* ── BOARD EVALUATION ───────────────────────────── */
-
-function checkBoard(b) {
+function evaluateBoard(boardState) {
   for (const combo of WIN_LINES) {
-    const [a, c_, e] = combo;
-    const m = b[a];
-    if (m && m === b[c_] && m === b[e]) {
-      return { type: "win", winner: m, combo };
+    const [a, b, c] = combo;
+    const mark = boardState[a];
+    if (mark && mark === boardState[b] && mark === boardState[c]) {
+      return { type: "win", winner: mark, combo };
     }
   }
-  if (b.every(Boolean)) return { type: "draw", winner: null, combo: null };
+
+  if (boardState.every(Boolean)) {
+    return { type: "draw", winner: null, combo: null };
+  }
+
   return null;
 }
 
+function finalizeRound(outcome) {
+  state.active = false;
+  state.playerTurn = false;
+  lockBoard();
+  clearAiTimers();
+  elements.thinking.hidden = true;
 
-/* ── MINIMAX AI (with alpha-beta pruning) ───────── */
+  const isAiVictory = outcome.type === "win" && outcome.winner === AI_MARK;
+  const isDraw = outcome.type === "draw";
 
-function bestMove(b) {
-  let best = -Infinity;
-  const candidates = [];
-  const open = openCells(b);
-
-  for (const m of open) {
-    b[m] = AI;
-    const score = minimax(b, 0, false, -Infinity, Infinity);
-    b[m] = "";
-    if (score > best)  { best = score; candidates.length = 0; }
-    if (score >= best) candidates.push(m);
-  }
-
-  // Among equally optimal moves, pick randomly for variety
-  return candidates[Math.floor(Math.random() * candidates.length)];
-}
-
-function minimax(b, depth, isMax, alpha, beta) {
-  const res = evalBoard(b);
-  if (res !== null) return res === AI ? 10 - depth : res === PLAYER ? depth - 10 : 0;
-
-  if (isMax) {
-    let v = -Infinity;
-    for (const m of openCells(b)) {
-      b[m] = AI;
-      v = Math.max(v, minimax(b, depth + 1, false, alpha, beta));
-      b[m] = "";
-      alpha = Math.max(alpha, v);
-      if (beta <= alpha) break;
-    }
-    return v;
-  }
-
-  let v = Infinity;
-  for (const m of openCells(b)) {
-    b[m] = PLAYER;
-    v = Math.min(v, minimax(b, depth + 1, true, alpha, beta));
-    b[m] = "";
-    beta = Math.min(beta, v);
-    if (beta <= alpha) break;
-  }
-  return v;
-}
-
-function evalBoard(b) {
-  for (const [a, c_, e] of WIN_LINES) {
-    const m = b[a];
-    if (m && m === b[c_] && m === b[e]) return m;
-  }
-  return b.every(Boolean) ? "draw" : null;
-}
-
-function openCells(b) {
-  const moves = [];
-  for (let i = 0; i < 9; i++) if (!b[i]) moves.push(i);
-  return moves;
-}
-
-
-/* ── END GAME ───────────────────────────────────── */
-
-function endGame(result) {
-  state.gameActive = false;
-  state.isPlayerTurn = false;
-  lockBoard(true);
-  dom.thinkingBar.hidden = true;
-  dom.thinkingBar.classList.remove("is-visible");
-
-  // Draw winning line
-  if (result.combo) {
-    state.winCombo = result.combo;
-    drawWinLine(result.combo);
-  }
-
-  let kind;
-  if (result.type === "win" && result.winner === AI) {
-    kind = "loss";
-    dom.turnText.textContent = "AI wins";
-    dom.aiTaunt.textContent = pickRandom(TAUNTS.aiWin);
-    audio.lose();
-  } else if (result.type === "draw") {
-    kind = "draw";
-    dom.turnText.textContent = "Draw";
-    dom.aiTaunt.textContent = pickRandom(TAUNTS.draw);
-    audio.draw();
+  if (isAiVictory) {
+    state.lastWinningLine = outcome.combo;
+    highlightWinningLine(elements.board, elements.winningLine, outcome.combo);
+    updateResultAccent("ai");
+    sound.playVictoryTone(false);
   } else {
-    kind = "win";
-    dom.turnText.textContent = "You won?!";
-    dom.aiTaunt.textContent = "Impossible. The ink smudged.";
-    audio.win();
+    state.lastWinningLine = null;
+    elements.winningLine.classList.remove("is-visible");
+    updateResultAccent("draw");
+    sound.playDrawTone();
   }
 
-  updateStats(kind);
-  updateMilestones();
-  renderStats();
-  renderMilestones();
-  persistState();
-
-  // Show overlay after a moment
-  setTimeout(() => showEndOverlay(kind), 800);
+  updateSessionStats(isAiVictory, isDraw);
+  updateAchievementState();
+  updateStatsUI();
+  updateAchievementsUI();
+  showRoundSummary(isAiVictory, isDraw);
 }
 
-function drawWinLine(combo) {
-  const boardRect = dom.board.getBoundingClientRect();
-  const frameRect = dom.board.parentElement.getBoundingClientRect();
-  if (!boardRect.width) return;
-
-  const cellSize = boardRect.width / 3;
-  const ox = boardRect.left - frameRect.left;
-  const oy = boardRect.top  - frameRect.top;
-
-  const [s, , e] = combo;
-  const x1 = ox + (s % 3 + 0.5) * cellSize;
-  const y1 = oy + (Math.floor(s / 3) + 0.5) * cellSize;
-  const x2 = ox + (e % 3 + 0.5) * cellSize;
-  const y2 = oy + (Math.floor(e / 3) + 0.5) * cellSize;
-
-  const line = dom.winStroke;
-  line.setAttribute("x1", x1);
-  line.setAttribute("y1", y1);
-  line.setAttribute("x2", x2);
-  line.setAttribute("y2", y2);
-
-  // Calculate and set dasharray to actual length
-  const len = Math.hypot(x2 - x1, y2 - y1);
-  line.style.strokeDasharray = len;
-  line.style.strokeDashoffset = len;
-
-  // Force reflow then animate
-  void line.getBoundingClientRect();
-  dom.winLine.classList.add("is-drawn");
-  line.style.strokeDashoffset = "0";
-}
-
-function showEndOverlay(kind) {
-  const icons  = { loss: "✕", draw: "═", win: "✦" };
-  const titles = {
-    loss: "You couldn't beat my AI.",
-    draw: "You survived.",
-    win:  "Impossible outcome.",
-  };
-  const subtitles = {
-    loss: "Maybe you'll be more impressed by the AI I actually build.",
-    draw: "Very few visitors leave a mark on this page. Respect.",
-    win:  "If this happened, the ink smudged somewhere.",
-  };
-
-  dom.endIcon.textContent = icons[kind];
-  dom.endTitle.textContent = titles[kind];
-  dom.endSubtitle.textContent = subtitles[kind];
-  dom.exploreLink.hidden = kind !== "loss";
-
-  dom.endOverlay.hidden = false;
-  // Force reflow
-  void dom.endOverlay.offsetHeight;
-  dom.endOverlay.classList.add("is-visible");
-}
-
-
-/* ── STATS & MILESTONES ─────────────────────────── */
-
-function updateStats(kind) {
-  state.stats.games++;
-  if (kind === "win")  state.stats.wins++;
-  if (kind === "draw") {
-    state.stats.draws++;
-    state.stats.currentStreak++;
-    state.stats.bestStreak = Math.max(state.stats.bestStreak, state.stats.currentStreak);
+function showRoundSummary(isAiVictory, isDraw) {
+  if (isAiVictory) {
+    elements.endTitle.textContent = "You couldn't beat my AI.";
+    elements.endSubtitle.textContent = "Maybe you'll be more impressed by the AI I actually build.";
+    elements.exploreLink.hidden = false;
+    elements.achievementBanner.hidden = true;
+  } else if (isDraw) {
+    elements.endTitle.textContent = "You survived.";
+    elements.endSubtitle.textContent = "Very few players force a draw.";
+    elements.exploreLink.hidden = true;
+    elements.achievementBanner.hidden = false;
+    elements.achievementBanner.textContent = "Achievement unlocked: Survivor";
+  } else {
+    elements.endTitle.textContent = "Unexpected signal.";
+    elements.endSubtitle.textContent = "The timeline should not have reached this branch.";
+    elements.exploreLink.hidden = true;
+    elements.achievementBanner.hidden = true;
   }
-  if (kind === "loss") {
-    state.stats.losses++;
+
+  elements.endOverlay.hidden = false;
+}
+
+function updateSessionStats(isAiVictory, isDraw) {
+  state.stats.gamesPlayed += 1;
+  if (isAiVictory) {
+    state.stats.losses += 1;
     state.stats.currentStreak = 0;
   }
-}
 
-function updateMilestones() {
-  const s = state.stats;
-  const m = state.milestones;
-  const prev = { ...m };
-
-  if (s.games >= 1)  m.first     = true;
-  if (s.draws >= 1)  m.draw      = true;
-  if (s.games >= 10) m.tenacious = true;
-  if (s.draws >= 5)  m.master    = true;
-
-  // Detect new unlocks for animation
-  state._newUnlocks = [];
-  for (const key of Object.keys(m)) {
-    if (m[key] && !prev[key]) state._newUnlocks.push(key);
-  }
-}
-
-function renderStats() {
-  const s = state.stats;
-  bumpValue(dom.scoreWins,   s.wins);
-  bumpValue(dom.scoreDraws,  s.draws);
-  bumpValue(dom.scoreLosses, s.losses);
-  dom.statGames.textContent  = s.games;
-  dom.statStreak.textContent = s.bestStreak;
-}
-
-function bumpValue(el, value) {
-  el.textContent = value;
-  el.classList.remove("bumped");
-  void el.offsetWidth;
-  el.classList.add("bumped");
-}
-
-function renderMilestones() {
-  const map = {
-    first:     dom.msFirst,
-    draw:      dom.msDraw,
-    tenacious: dom.msTenacious,
-    master:    dom.msMaster,
-  };
-
-  for (const [key, el] of Object.entries(map)) {
-    if (state.milestones[key]) {
-      el.classList.add("unlocked");
-      if (state._newUnlocks?.includes(key)) {
-        el.classList.add("just-unlocked");
-        audio.unlock();
-        el.addEventListener("animationend", () => el.classList.remove("just-unlocked"), { once: true });
-      }
+  if (isDraw) {
+    state.stats.draws += 1;
+    state.stats.currentStreak += 1;
+    const drawDuration = Math.max(0, performance.now() - state.roundStartedAt);
+    if (!state.stats.fastestDrawMs || drawDuration < state.stats.fastestDrawMs) {
+      state.stats.fastestDrawMs = Math.round(drawDuration);
     }
   }
+
+  sessionStorage.setItem(STORAGE_KEYS.stats, JSON.stringify(state.stats));
 }
 
+function updateAchievementState() {
+  if (state.stats.gamesPlayed >= 1) {
+    state.achievements.firstMatch = true;
+  }
+  if (state.stats.gamesPlayed >= 10) {
+    state.achievements.persistentChallenger = true;
+    state.achievements.tenGames = true;
+  }
+  if (state.stats.draws >= 5) {
+    state.achievements.fiveDraws = true;
+  }
+  if (state.stats.draws >= 1) {
+    state.achievements.survivor = true;
+  }
+  if (state.stats.gamesPlayed >= 25) {
+    state.achievements.impossibleChallenger = true;
+  }
 
-/* ── MUTE TOGGLE ────────────────────────────────── */
-
-function updateMuteUI() {
-  const muted = state.muted;
-  dom.muteToggle.setAttribute("aria-pressed", String(muted));
-  dom.soundOnIcon.style.display  = muted ? "none" : "block";
-  dom.soundOffIcon.style.display = muted ? "block" : "none";
+  sessionStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(state.achievements));
 }
 
+function updateStatsUI() {
+  elements.statGames.textContent = String(state.stats.gamesPlayed);
+  elements.statDraws.textContent = String(state.stats.draws);
+  elements.statLosses.textContent = String(state.stats.losses);
+  elements.statStreak.textContent = String(state.stats.currentStreak);
+  elements.statFastestDraw.textContent = state.stats.fastestDrawMs ? formatDuration(state.stats.fastestDrawMs) : "--";
+}
 
-/* ── PERSISTENCE ────────────────────────────────── */
+function updateAchievementsUI() {
+  setAchievementState(elements.achFirstMatch, state.achievements.firstMatch);
+  setAchievementState(elements.achPersistentChallenger, state.achievements.persistentChallenger);
+  setAchievementState(elements.achFiveDraws, state.achievements.fiveDraws);
+  setAchievementState(elements.achTenGames, state.achievements.tenGames);
+  setAchievementState(elements.achSurvivor, state.achievements.survivor);
+  setAchievementState(elements.achImpossibleChallenger, state.achievements.impossibleChallenger);
+}
 
-function loadState() {
+function setAchievementState(element, unlocked) {
+  element.classList.toggle("unlocked", unlocked);
+}
+
+function handleMuteToggle(event) {
+  attachButtonRipple(event);
+  state.muted = !state.muted;
+  sound.setMuted(state.muted);
+  updateSoundControls();
+  if (!state.muted) {
+    sound.playClick();
+  }
+}
+
+function handleVolumeChange() {
+  const volume = clamp(Number(elements.volumeSlider.value), 0, 100) / 100;
+  state.volume = volume;
+  sound.setVolume(volume);
+  updateSoundControls();
+}
+
+function updateSoundControls() {
+  elements.volumeSlider.value = String(Math.round(state.volume * 100));
+  elements.muteToggle.setAttribute("aria-pressed", String(state.muted));
+  elements.muteToggle.textContent = state.muted ? "Sound Off" : "Sound On";
+}
+
+function persistSoundPreferences(nextMuted, nextVolume) {
+  localStorage.setItem(STORAGE_KEYS.muted, String(nextMuted));
+  localStorage.setItem(STORAGE_KEYS.volume, String(Math.round(nextVolume * 100)));
+}
+
+function lockBoard() {
+  cells.forEach((cell, index) => {
+    cell.disabled = true;
+    cell.tabIndex = index === state.focusIndex ? 0 : -1;
+  });
+}
+
+function unlockAvailableCells() {
+  cells.forEach((cell, index) => {
+    if (!state.board[index]) {
+      cell.disabled = false;
+    }
+  });
+}
+
+function nextOpenCell() {
+  const index = state.board.findIndex((value) => !value);
+  return index === -1 ? 0 : index;
+}
+
+function clearAiTimers() {
+  if (state.pendingAiTimeout) {
+    window.clearTimeout(state.pendingAiTimeout);
+    state.pendingAiTimeout = null;
+  }
+  if (state.pendingAiTicker) {
+    window.clearInterval(state.pendingAiTicker);
+    state.pendingAiTicker = null;
+  }
+}
+
+function createBoardCells() {
+  const createdCells = [];
+
+  for (let index = 0; index < 9; index += 1) {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "cell";
+    cell.dataset.index = String(index);
+    cell.dataset.row = String(Math.floor(index / 3));
+    cell.dataset.column = String(index % 3);
+    cell.setAttribute("role", "gridcell");
+    cell.setAttribute("aria-label", `Cell ${index + 1}, empty`);
+    cell.tabIndex = index === 0 ? 0 : -1;
+    cell.addEventListener("click", handleCellSelect);
+    cell.addEventListener("pointerdown", attachButtonRipple);
+    elements.board.appendChild(cell);
+    createdCells.push(cell);
+  }
+
+  return createdCells;
+}
+
+function loadFromSession(key, fallback) {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const saved = JSON.parse(raw);
-    if (saved.stats)      Object.assign(state.stats, saved.stats);
-    if (saved.milestones) Object.assign(state.milestones, saved.milestones);
-    if (saved.muted != null) state.muted = saved.muted;
-  } catch { /* ignore */ }
+    const raw = sessionStorage.getItem(key);
+    if (!raw) {
+      return { ...fallback };
+    }
+
+    const parsed = JSON.parse(raw);
+    return { ...fallback, ...parsed };
+  } catch {
+    return { ...fallback };
+  }
 }
 
-function persistState() {
-  try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-      stats: state.stats,
-      milestones: state.milestones,
-      muted: state.muted,
-    }));
-  } catch { /* ignore */ }
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
-
-/* ── HELPERS ────────────────────────────────────── */
-
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-
-/* ── INITIALIZATION ─────────────────────────────── */
-
-(function init() {
-  loadState();
-  createBoard();
-  createAmbientParticles();
-  renderStats();
-  renderMilestones();
-  updateMuteUI();
-
-  // Start discovery sequence
-  stopCanvas = initInkCanvas();
-  runDiscoverySequence();
-
-  // ── Event: Enter button ──
-  dom.enterBtn.addEventListener("click", () => {
-    audio.init();
-    audio.enter();
-    if (stopCanvas) { stopCanvas(); stopCanvas = null; }
-    showPhase(dom.phaseChallenge);
-  });
-
-  // ── Event: Begin button ──
-  dom.beginBtn.addEventListener("click", () => {
-    audio.init();
-    audio.click();
-    showPhase(dom.phaseGame);
-    setTimeout(() => {
-      dom.gameStage.classList.add("is-revealed");
-      startNewRound();
-    }, 400);
-  });
-
-  // ── Event: Play again ──
-  dom.playAgainBtn.addEventListener("click", () => {
-    audio.click();
-    startNewRound();
-  });
-
-  // ── Event: Mute toggle ──
-  dom.muteToggle.addEventListener("click", () => {
-    audio.init();
-    state.muted = !state.muted;
-    updateMuteUI();
-    persistState();
-    if (!state.muted) audio.click();
-  });
-
-  // ── Event: Resize — redraw win line ──
-  window.addEventListener("resize", () => {
-    if (state.winCombo) drawWinLine(state.winCombo);
-  });
-})();
+function formatDuration(milliseconds) {
+  const totalSeconds = milliseconds / 1000;
+  return `${totalSeconds.toFixed(1)}s`;
+}
