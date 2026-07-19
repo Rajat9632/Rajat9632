@@ -1,10 +1,9 @@
-import { AI_TOTAL_GAME_TREES, chooseOptimalMove } from "./ai.js";
-import { animateBootScreen, animateBoardReveal, attachButtonRipple, createParticleField, createAmbientMotion, highlightWinningLine, sleep, updateResultAccent } from "./animation.js";
-import { createSoundEngine } from "./sound.js";
+"use strict";
 
 const PLAYER_MARK = "X";
 const AI_MARK = "O";
-const WIN_LINES = [
+
+const WIN_COMBINATIONS = [
   [0, 1, 2],
   [3, 4, 5],
   [6, 7, 8],
@@ -15,29 +14,22 @@ const WIN_LINES = [
   [2, 4, 6]
 ];
 
-const AI_LINES = [
-  "Interesting.",
-  "Expected.",
-  "You saw that.",
-  "Thinking...",
-  "Optimal response found.",
-  "Nice opening.",
-  "Mistake detected.",
-  "Searching..."
+const AI_PERSONALITY = [
+  "Interesting line.",
+  "Predictable.",
+  "I've sketched this before.",
+  "Calculating...",
+  "Nice try."
 ];
 
 const STORAGE_KEYS = {
-  stats: "quantum-grid:stats",
-  achievements: "quantum-grid:achievements",
-  volume: "quantum-grid:volume",
-  muted: "quantum-grid:muted"
+  stats: "arcade:tictactoe:stats",
+  achievements: "arcade:tictactoe:achievements",
+  muted: "arcade:tictactoe:muted"
 };
 
 const elements = {
   bootScreen: document.getElementById("bootScreen"),
-  bootLine: document.getElementById("bootLine"),
-  bootPercent: document.getElementById("bootPercent"),
-  bootFeed: document.getElementById("bootFeed"),
   introScreen: document.getElementById("introScreen"),
   gameScreen: document.getElementById("gameScreen"),
   startBtn: document.getElementById("startBtn"),
@@ -50,501 +42,483 @@ const elements = {
   endOverlay: document.getElementById("endOverlay"),
   endTitle: document.getElementById("endTitle"),
   endSubtitle: document.getElementById("endSubtitle"),
-  achievementBanner: document.getElementById("achievementBanner"),
   exploreLink: document.getElementById("exploreProjectsLink"),
   muteToggle: document.getElementById("muteToggle"),
-  volumeSlider: document.getElementById("volumeSlider"),
   particleLayer: document.getElementById("particleLayer"),
-  toastStack: document.getElementById("toastStack"),
   statGames: document.getElementById("statGames"),
+  statWins: document.getElementById("statWins"),
   statDraws: document.getElementById("statDraws"),
   statLosses: document.getElementById("statLosses"),
-  statStreak: document.getElementById("statStreak"),
-  statFastestDraw: document.getElementById("statFastestDraw"),
-  achFirstMatch: document.getElementById("ach-first-match"),
+  achFirstGame: document.getElementById("ach-first-game"),
+  achFirstDraw: document.getElementById("ach-first-draw"),
   achPersistentChallenger: document.getElementById("ach-persistent-challenger"),
-  achFiveDraws: document.getElementById("ach-five-draws"),
-  achTenGames: document.getElementById("ach-ten-games"),
-  achSurvivor: document.getElementById("ach-survivor"),
-  achImpossibleChallenger: document.getElementById("ach-impossible-challenger")
+  achMasterSurvivor: document.getElementById("ach-master-survivor")
 };
 
 const state = {
   board: Array(9).fill(""),
-  active: false,
-  playerTurn: true,
-  pendingAiTimeout: null,
-  pendingAiTicker: null,
-  roundStartedAt: 0,
-  focusIndex: 0,
-  aiTurnCount: 0,
+  isPlayerTurn: true,
+  gameActive: false,
+  aiTimer: null,
+  aiMessageIndex: 0,
+  winningCombo: null,
   stats: loadFromSession(STORAGE_KEYS.stats, {
     gamesPlayed: 0,
+    wins: 0,
     draws: 0,
-    losses: 0,
-    currentStreak: 0,
-    fastestDrawMs: null
+    losses: 0
   }),
   achievements: loadFromSession(STORAGE_KEYS.achievements, {
-    firstMatch: false,
+    firstGame: false,
+    firstDraw: false,
     persistentChallenger: false,
-    fiveDraws: false,
-    tenGames: false,
-    survivor: false,
-    impossibleChallenger: false
+    masterSurvivor: false
   }),
-  muted: localStorage.getItem(STORAGE_KEYS.muted) === "true",
-  volume: clamp(Number(localStorage.getItem(STORAGE_KEYS.volume) ?? "72"), 0, 100) / 100
+  muted: sessionStorage.getItem(STORAGE_KEYS.muted) === "true"
 };
 
-const sound = createSoundEngine({
-  muted: state.muted,
-  volume: state.volume,
-  onChange: persistSoundPreferences
-});
+const audio = {
+  context: null,
+  ensureContext() {
+    if (!this.context) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.context = new AudioCtx();
+      }
+    }
+    if (this.context?.state === "suspended") {
+      this.context.resume().catch(() => {});
+    }
+  },
+  beep({ frequency = 440, duration = 0.09, type = "sine", volume = 0.05, slideTo = null }) {
+    if (state.muted || !this.context) {
+      return;
+    }
+
+    const osc = this.context.createOscillator();
+    const gain = this.context.createGain();
+    const now = this.context.currentTime;
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, now);
+    if (slideTo) {
+      osc.frequency.linearRampToValueAtTime(slideTo, now + duration);
+    }
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(volume, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    osc.connect(gain);
+    gain.connect(this.context.destination);
+    osc.start(now);
+    osc.stop(now + duration + 0.01);
+  }
+};
 
 const cells = createBoardCells();
-createParticleField(elements.particleLayer, 24);
-createAmbientMotion(document.documentElement);
-updateSoundControls();
+createParticles();
 updateStatsUI();
-updateAchievementsUI();
+updateAchievementUI();
+updateMuteUI();
 bindEvents();
-runBootSequence();
 
 function bindEvents() {
-  elements.startBtn.addEventListener("click", beginArcadeSession);
-  elements.playAgainBtn.addEventListener("click", restartRound);
-  elements.muteToggle.addEventListener("click", handleMuteToggle);
-  elements.volumeSlider.addEventListener("input", handleVolumeChange);
+  elements.startBtn.addEventListener("click", runOpeningSequence);
+  elements.playAgainBtn.addEventListener("click", () => {
+    audio.ensureContext();
+    audio.beep({ frequency: 380, duration: 0.08, type: "triangle", volume: 0.04 });
+    startNewRound();
+  });
 
-  window.addEventListener("resize", () => {
-    if (state.lastWinningLine) {
-      highlightWinningLine(elements.board, elements.winningLine, state.lastWinningLine);
+  elements.muteToggle.addEventListener("click", () => {
+    audio.ensureContext();
+    state.muted = !state.muted;
+    sessionStorage.setItem(STORAGE_KEYS.muted, String(state.muted));
+    updateMuteUI();
+    if (!state.muted) {
+      audio.beep({ frequency: 520, duration: 0.07, type: "sine", volume: 0.035, slideTo: 620 });
     }
   });
 
-  document.addEventListener("keydown", handleGlobalShortcut);
-}
-
-async function runBootSequence() {
-  const frames = [
-    [0, "Booting Quantum Grid..."],
-    [12, "Loading portfolio arcade shell..."],
-    [34, "Spinning up synthesis layer..."],
-    [57, "Training creator AI..."],
-    [81, "Finalizing scanline matrix..."],
-    [100, "System ready."]
-  ];
-
-  await animateBootScreen({
-    bootLine: elements.bootLine,
-    bootPercent: elements.bootPercent,
-    bootFeed: elements.bootFeed,
-    frames,
-    interval: 320
+  window.addEventListener("resize", () => {
+    if (state.winningCombo) {
+      renderWinningLine(state.winningCombo);
+    }
   });
+}
+function runOpeningSequence() {
+  audio.ensureContext();
+  audio.beep({ frequency: 280, duration: 0.11, type: "square", volume: 0.04, slideTo: 360 });
 
   elements.bootScreen.classList.remove("is-active");
-  elements.bootScreen.setAttribute("aria-hidden", "true");
   elements.introScreen.classList.add("is-active");
   elements.introScreen.setAttribute("aria-hidden", "false");
+
+  window.setTimeout(() => {
+    elements.introScreen.classList.remove("is-active");
+    elements.introScreen.setAttribute("aria-hidden", "true");
+    elements.gameScreen.classList.add("is-active");
+    elements.gameScreen.classList.add("is-ready");
+    elements.gameScreen.setAttribute("aria-hidden", "false");
+    startNewRound();
+  }, 1600);
 }
 
-async function beginArcadeSession(event) {
-  attachButtonRipple(event);
-  await sound.unlock();
-  sound.playBootRise();
-  elements.introScreen.classList.remove("is-active");
-  elements.introScreen.setAttribute("aria-hidden", "true");
-  elements.gameScreen.classList.add("is-active");
-  elements.gameScreen.setAttribute("aria-hidden", "false");
-  animateBoardReveal(elements.board);
-  restartRound();
-}
-
-function restartRound(event) {
-  if (event) {
-    attachButtonRipple(event);
-    sound.playClick();
+function startNewRound() {
+  if (state.aiTimer) {
+    window.clearTimeout(state.aiTimer);
   }
 
-  clearAiTimers();
   state.board = Array(9).fill("");
-  state.active = true;
-  state.playerTurn = true;
-  state.roundStartedAt = performance.now();
-  state.focusIndex = 0;
-  state.lastWinningLine = null;
+  state.isPlayerTurn = true;
+  state.gameActive = true;
+  state.winningCombo = null;
+  state.aiMessageIndex = state.aiMessageIndex % AI_PERSONALITY.length;
 
   elements.endOverlay.hidden = true;
   elements.exploreLink.hidden = true;
-  elements.achievementBanner.hidden = true;
   elements.aiMessage.textContent = "";
-  elements.turnText.textContent = "Your move. Place X.";
+  elements.turnText.textContent = "Your move: place X.";
   elements.thinking.hidden = true;
   elements.winningLine.classList.remove("is-visible");
-  updateResultAccent(null);
 
-  cells.forEach((cell, index) => {
-    cell.textContent = "";
-    cell.className = "cell";
+  for (let i = 0; i < cells.length; i += 1) {
+    const cell = cells[i];
     cell.disabled = false;
-    cell.tabIndex = index === 0 ? 0 : -1;
-    cell.setAttribute("aria-label", `Cell ${index + 1}, empty`);
-  });
-
-  cells[0]?.focus();
-}
-
-function handleGlobalShortcut(event) {
-  if (!state.active || !elements.gameScreen.classList.contains("is-active")) {
-    return;
+    cell.textContent = "";
+    cell.classList.remove("mark-x", "mark-o", "placed");
+    cell.setAttribute("aria-label", `Cell ${i + 1}, empty`);
   }
-
-  const key = event.key;
-  if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " "].includes(key)) {
-    return;
-  }
-
-  const focusedCell = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
-  if (!focusedCell || !focusedCell.classList.contains("cell")) {
-    return;
-  }
-
-  if (key === "Enter" || key === " ") {
-    event.preventDefault();
-    focusedCell.click();
-    return;
-  }
-
-  event.preventDefault();
-  const currentIndex = Number(focusedCell.dataset.index);
-  const nextIndex = moveFocusIndex(currentIndex, key);
-  focusCell(nextIndex);
-}
-
-function moveFocusIndex(currentIndex, key) {
-  const deltaMap = {
-    ArrowLeft: -1,
-    ArrowRight: 1,
-    ArrowUp: -3,
-    ArrowDown: 3
-  };
-
-  const tentative = currentIndex + (deltaMap[key] ?? 0);
-  if (tentative < 0 || tentative > 8) {
-    return currentIndex;
-  }
-
-  if ((key === "ArrowLeft" && currentIndex % 3 === 0) || (key === "ArrowRight" && currentIndex % 3 === 2)) {
-    return currentIndex;
-  }
-
-  return tentative;
-}
-
-function focusCell(index) {
-  if (index < 0 || index > 8 || cells[index].disabled) {
-    return;
-  }
-
-  cells[state.focusIndex]?.setAttribute("tabindex", "-1");
-  state.focusIndex = index;
-  cells[index].setAttribute("tabindex", "0");
-  cells[index].focus();
 }
 
 function handleCellSelect(event) {
   const cell = event.currentTarget;
   const index = Number(cell.dataset.index);
 
-  if (!state.active || !state.playerTurn || state.board[index]) {
+  if (!state.gameActive || !state.isPlayerTurn || state.board[index]) {
     return;
   }
 
-  attachButtonRipple(event);
-  sound.playPlace();
-  commitMove(index, PLAYER_MARK);
+  applyMove(index, PLAYER_MARK);
+  audio.beep({ frequency: 520, duration: 0.08, type: "triangle", volume: 0.04 });
 
-  const playerOutcome = evaluateBoard(state.board);
-  if (playerOutcome) {
-    finalizeRound(playerOutcome);
+  const outcome = evaluateBoard();
+  if (outcome) {
+    finishGame(outcome);
     return;
   }
 
-  state.playerTurn = false;
-  lockBoard();
-  beginAiThinkingCycle();
-}
-
-function beginAiThinkingCycle() {
-  elements.turnText.textContent = "AI is thinking.";
+  state.isPlayerTurn = false;
+  setBoardInteractivity(false);
+  elements.turnText.textContent = "AI turn.";
   elements.thinking.hidden = false;
-  const thinkingMessages = ["Analyzing...", "Searching...", "Calculating...", "Evaluating..."];
-  let messageIndex = 0;
 
-  elements.aiMessage.textContent = thinkingMessages[messageIndex];
-  state.pendingAiTicker = window.setInterval(() => {
-    messageIndex = (messageIndex + 1) % thinkingMessages.length;
-    elements.aiMessage.textContent = thinkingMessages[messageIndex];
-  }, 140);
-
-  const delay = randomInt(400, 700);
-  state.pendingAiTimeout = window.setTimeout(async () => {
-    clearInterval(state.pendingAiTicker);
-    state.pendingAiTicker = null;
-    elements.aiMessage.textContent = `Found ${AI_TOTAL_GAME_TREES.toLocaleString()} possibilities.`;
-    await sleep(160);
-    if (!state.active) {
+  const delay = randomInt(300, 600);
+  state.aiTimer = window.setTimeout(() => {
+    if (!state.gameActive) {
       return;
     }
-    executeAiMove();
+    playAiTurn();
   }, delay);
 }
 
-function executeAiMove() {
+function playAiTurn() {
+  state.aiTimer = null;
   elements.thinking.hidden = true;
-  state.pendingAiTimeout = null;
 
-  const outcome = chooseOptimalMove(state.board.slice(), AI_MARK, PLAYER_MARK);
-  commitMove(outcome.move, AI_MARK);
-  state.aiTurnCount += 1;
-  sound.playAiMove();
+  const bestMove = findBestAiMove(state.board.slice());
+  applyMove(bestMove, AI_MARK);
+  audio.beep({ frequency: 320, duration: 0.09, type: "sawtooth", volume: 0.035, slideTo: 260 });
 
-  const aiLine = AI_LINES[state.aiTurnCount % AI_LINES.length];
-  elements.aiMessage.textContent = aiLine;
+  elements.aiMessage.textContent = AI_PERSONALITY[state.aiMessageIndex % AI_PERSONALITY.length];
+  state.aiMessageIndex += 1;
 
-  const boardOutcome = evaluateBoard(state.board);
-  if (boardOutcome) {
-    finalizeRound(boardOutcome);
+  const outcome = evaluateBoard();
+  if (outcome) {
+    finishGame(outcome);
     return;
   }
 
-  state.playerTurn = true;
-  elements.turnText.textContent = "Your move. Place X.";
-  unlockAvailableCells();
-  focusCell(nextOpenCell());
+  state.isPlayerTurn = true;
+  elements.turnText.textContent = "Your move: place X.";
+  setBoardInteractivity(true);
 }
 
-function commitMove(index, mark) {
+function applyMove(index, mark) {
   state.board[index] = mark;
   const cell = cells[index];
   cell.textContent = mark;
+  cell.classList.remove("placed");
   cell.classList.add(mark === PLAYER_MARK ? "mark-x" : "mark-o");
   cell.classList.add("placed");
   cell.disabled = true;
-  cell.tabIndex = -1;
   cell.setAttribute("aria-label", `Cell ${index + 1}, ${mark}`);
 }
 
-function evaluateBoard(boardState) {
-  for (const combo of WIN_LINES) {
+function evaluateBoard() {
+  for (const combo of WIN_COMBINATIONS) {
     const [a, b, c] = combo;
-    const mark = boardState[a];
-    if (mark && mark === boardState[b] && mark === boardState[c]) {
+    const mark = state.board[a];
+    if (mark && mark === state.board[b] && mark === state.board[c]) {
       return { type: "win", winner: mark, combo };
     }
   }
 
-  if (boardState.every(Boolean)) {
+  if (state.board.every(Boolean)) {
     return { type: "draw", winner: null, combo: null };
   }
 
   return null;
 }
 
-function finalizeRound(outcome) {
-  state.active = false;
-  state.playerTurn = false;
-  lockBoard();
-  clearAiTimers();
+function finishGame(outcome) {
+  state.gameActive = false;
+  state.isPlayerTurn = false;
+  setBoardInteractivity(false);
   elements.thinking.hidden = true;
 
-  const isAiVictory = outcome.type === "win" && outcome.winner === AI_MARK;
-  const isDraw = outcome.type === "draw";
-
-  if (isAiVictory) {
-    state.lastWinningLine = outcome.combo;
-    highlightWinningLine(elements.board, elements.winningLine, outcome.combo);
-    updateResultAccent("ai");
-    sound.playVictoryTone(false);
+  if (outcome.type === "win" && outcome.combo) {
+    state.winningCombo = outcome.combo;
+    renderWinningLine(outcome.combo);
   } else {
-    state.lastWinningLine = null;
+    state.winningCombo = null;
     elements.winningLine.classList.remove("is-visible");
-    updateResultAccent("draw");
-    sound.playDrawTone();
   }
 
-  updateSessionStats(isAiVictory, isDraw);
-  updateAchievementState();
+  let resultType = "draw";
+  if (outcome.type === "win" && outcome.winner === AI_MARK) {
+    resultType = "ai-win";
+    elements.turnText.textContent = "AI wins.";
+    audio.beep({ frequency: 190, duration: 0.14, type: "square", volume: 0.045, slideTo: 140 });
+  } else if (outcome.type === "draw") {
+    resultType = "draw";
+    elements.turnText.textContent = "Draw.";
+    audio.beep({ frequency: 430, duration: 0.11, type: "sine", volume: 0.035 });
+  } else {
+    resultType = "player-win";
+    elements.turnText.textContent = "You won.";
+    audio.beep({ frequency: 680, duration: 0.09, type: "triangle", volume: 0.035, slideTo: 820 });
+  }
+
+  updateStats(resultType);
+  updateAchievements();
   updateStatsUI();
-  updateAchievementsUI();
-  showRoundSummary(isAiVictory, isDraw);
+  updateAchievementUI();
+  showEndOverlay(resultType);
 }
 
-function showRoundSummary(isAiVictory, isDraw) {
-  if (isAiVictory) {
+function showEndOverlay(resultType) {
+  if (resultType === "ai-win") {
     elements.endTitle.textContent = "You couldn't beat my AI.";
     elements.endSubtitle.textContent = "Maybe you'll be more impressed by the AI I actually build.";
     elements.exploreLink.hidden = false;
-    elements.achievementBanner.hidden = true;
-  } else if (isDraw) {
+  } else if (resultType === "draw") {
     elements.endTitle.textContent = "You survived.";
-    elements.endSubtitle.textContent = "Very few players force a draw.";
+    elements.endSubtitle.textContent = "Very few visitors leave a mark on the page.";
     elements.exploreLink.hidden = true;
-    elements.achievementBanner.hidden = false;
-    elements.achievementBanner.textContent = "Achievement unlocked: Survivor";
   } else {
-    elements.endTitle.textContent = "Unexpected signal.";
-    elements.endSubtitle.textContent = "The timeline should not have reached this branch.";
+    elements.endTitle.textContent = "Impossible outcome.";
+    elements.endSubtitle.textContent = "If this happened, the ink smudged.";
     elements.exploreLink.hidden = true;
-    elements.achievementBanner.hidden = true;
   }
 
   elements.endOverlay.hidden = false;
 }
 
-function updateSessionStats(isAiVictory, isDraw) {
+function updateStats(resultType) {
   state.stats.gamesPlayed += 1;
-  if (isAiVictory) {
+  if (resultType === "ai-win") {
     state.stats.losses += 1;
-    state.stats.currentStreak = 0;
-  }
-
-  if (isDraw) {
+  } else if (resultType === "draw") {
     state.stats.draws += 1;
-    state.stats.currentStreak += 1;
-    const drawDuration = Math.max(0, performance.now() - state.roundStartedAt);
-    if (!state.stats.fastestDrawMs || drawDuration < state.stats.fastestDrawMs) {
-      state.stats.fastestDrawMs = Math.round(drawDuration);
-    }
+  } else {
+    state.stats.wins += 1;
   }
-
   sessionStorage.setItem(STORAGE_KEYS.stats, JSON.stringify(state.stats));
 }
 
-function updateAchievementState() {
+function updateAchievements() {
   if (state.stats.gamesPlayed >= 1) {
-    state.achievements.firstMatch = true;
+    state.achievements.firstGame = true;
+  }
+  if (state.stats.draws >= 1) {
+    state.achievements.firstDraw = true;
   }
   if (state.stats.gamesPlayed >= 10) {
     state.achievements.persistentChallenger = true;
-    state.achievements.tenGames = true;
   }
   if (state.stats.draws >= 5) {
-    state.achievements.fiveDraws = true;
+    state.achievements.masterSurvivor = true;
   }
-  if (state.stats.draws >= 1) {
-    state.achievements.survivor = true;
-  }
-  if (state.stats.gamesPlayed >= 25) {
-    state.achievements.impossibleChallenger = true;
-  }
-
   sessionStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(state.achievements));
 }
 
 function updateStatsUI() {
   elements.statGames.textContent = String(state.stats.gamesPlayed);
+  elements.statWins.textContent = String(state.stats.wins);
   elements.statDraws.textContent = String(state.stats.draws);
   elements.statLosses.textContent = String(state.stats.losses);
-  elements.statStreak.textContent = String(state.stats.currentStreak);
-  elements.statFastestDraw.textContent = state.stats.fastestDrawMs ? formatDuration(state.stats.fastestDrawMs) : "--";
 }
 
-function updateAchievementsUI() {
-  setAchievementState(elements.achFirstMatch, state.achievements.firstMatch);
-  setAchievementState(elements.achPersistentChallenger, state.achievements.persistentChallenger);
-  setAchievementState(elements.achFiveDraws, state.achievements.fiveDraws);
-  setAchievementState(elements.achTenGames, state.achievements.tenGames);
-  setAchievementState(elements.achSurvivor, state.achievements.survivor);
-  setAchievementState(elements.achImpossibleChallenger, state.achievements.impossibleChallenger);
+function updateAchievementUI() {
+  elements.achFirstGame.classList.toggle("unlocked", state.achievements.firstGame);
+  elements.achFirstDraw.classList.toggle("unlocked", state.achievements.firstDraw);
+  elements.achPersistentChallenger.classList.toggle("unlocked", state.achievements.persistentChallenger);
+  elements.achMasterSurvivor.classList.toggle("unlocked", state.achievements.masterSurvivor);
 }
 
-function setAchievementState(element, unlocked) {
-  element.classList.toggle("unlocked", unlocked);
-}
-
-function handleMuteToggle(event) {
-  attachButtonRipple(event);
-  state.muted = !state.muted;
-  sound.setMuted(state.muted);
-  updateSoundControls();
-  if (!state.muted) {
-    sound.playClick();
-  }
-}
-
-function handleVolumeChange() {
-  const volume = clamp(Number(elements.volumeSlider.value), 0, 100) / 100;
-  state.volume = volume;
-  sound.setVolume(volume);
-  updateSoundControls();
-}
-
-function updateSoundControls() {
-  elements.volumeSlider.value = String(Math.round(state.volume * 100));
+function updateMuteUI() {
   elements.muteToggle.setAttribute("aria-pressed", String(state.muted));
   elements.muteToggle.textContent = state.muted ? "Sound Off" : "Sound On";
 }
 
-function persistSoundPreferences(nextMuted, nextVolume) {
-  localStorage.setItem(STORAGE_KEYS.muted, String(nextMuted));
-  localStorage.setItem(STORAGE_KEYS.volume, String(Math.round(nextVolume * 100)));
+function setBoardInteractivity(enabled) {
+  for (let i = 0; i < cells.length; i += 1) {
+    cells[i].disabled = !enabled || Boolean(state.board[i]) || !state.gameActive;
+  }
 }
 
-function lockBoard() {
-  cells.forEach((cell, index) => {
-    cell.disabled = true;
-    cell.tabIndex = index === state.focusIndex ? 0 : -1;
-  });
-}
+function findBestAiMove(boardState) {
+  let bestScore = -Infinity;
+  const candidateMoves = [];
+  const available = getAvailableMoves(boardState);
 
-function unlockAvailableCells() {
-  cells.forEach((cell, index) => {
-    if (!state.board[index]) {
-      cell.disabled = false;
+  for (const move of available) {
+    boardState[move] = AI_MARK;
+    const score = minimax(boardState, 0, false, -Infinity, Infinity);
+    boardState[move] = "";
+
+    if (score > bestScore) {
+      bestScore = score;
+      candidateMoves.length = 0;
+      candidateMoves.push(move);
+    } else if (score === bestScore) {
+      candidateMoves.push(move);
     }
-  });
+  }
+
+  return candidateMoves[Math.floor(Math.random() * candidateMoves.length)];
 }
 
-function nextOpenCell() {
-  const index = state.board.findIndex((value) => !value);
-  return index === -1 ? 0 : index;
+function minimax(boardState, depth, isMaximizing, alpha, beta) {
+  const terminal = evaluateBoardState(boardState);
+  if (terminal) {
+    if (terminal.winner === AI_MARK) {
+      return 10 - depth;
+    }
+    if (terminal.winner === PLAYER_MARK) {
+      return depth - 10;
+    }
+    return 0;
+  }
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    const availableMoves = getAvailableMoves(boardState);
+    for (const move of availableMoves) {
+      boardState[move] = AI_MARK;
+      const score = minimax(boardState, depth + 1, false, alpha, beta);
+      boardState[move] = "";
+      bestScore = Math.max(bestScore, score);
+      alpha = Math.max(alpha, score);
+      if (beta <= alpha) {
+        break;
+      }
+    }
+    return bestScore;
+  }
+
+  let bestScore = Infinity;
+  const availableMoves = getAvailableMoves(boardState);
+  for (const move of availableMoves) {
+    boardState[move] = PLAYER_MARK;
+    const score = minimax(boardState, depth + 1, true, alpha, beta);
+    boardState[move] = "";
+    bestScore = Math.min(bestScore, score);
+    beta = Math.min(beta, score);
+    if (beta <= alpha) {
+      break;
+    }
+  }
+  return bestScore;
 }
 
-function clearAiTimers() {
-  if (state.pendingAiTimeout) {
-    window.clearTimeout(state.pendingAiTimeout);
-    state.pendingAiTimeout = null;
+function evaluateBoardState(boardState) {
+  for (const combo of WIN_COMBINATIONS) {
+    const [a, b, c] = combo;
+    const mark = boardState[a];
+    if (mark && mark === boardState[b] && mark === boardState[c]) {
+      return { winner: mark, combo };
+    }
   }
-  if (state.pendingAiTicker) {
-    window.clearInterval(state.pendingAiTicker);
-    state.pendingAiTicker = null;
+
+  if (boardState.every(Boolean)) {
+    return { winner: "draw", combo: null };
   }
+  return null;
+}
+
+function getAvailableMoves(boardState) {
+  const moves = [];
+  for (let i = 0; i < boardState.length; i += 1) {
+    if (!boardState[i]) {
+      moves.push(i);
+    }
+  }
+  return moves;
+}
+
+function renderWinningLine(combo) {
+  const boardRect = elements.board.getBoundingClientRect();
+  if (!boardRect.width || !boardRect.height) {
+    return;
+  }
+
+  const boardOffsetX = elements.board.offsetLeft;
+  const boardOffsetY = elements.board.offsetTop;
+  const cellSize = boardRect.width / 3;
+  const [start, , end] = combo;
+  const startX = (start % 3 + 0.5) * cellSize;
+  const startY = (Math.floor(start / 3) + 0.5) * cellSize;
+  const endX = (end % 3 + 0.5) * cellSize;
+  const endY = (Math.floor(end / 3) + 0.5) * cellSize;
+  const lineLength = Math.hypot(endX - startX, endY - startY);
+  const angle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
+
+  elements.winningLine.style.width = `${lineLength}px`;
+  elements.winningLine.style.transform = `translate(${boardOffsetX + startX}px, ${boardOffsetY + startY}px) rotate(${angle}deg)`;
+  elements.winningLine.classList.add("is-visible");
 }
 
 function createBoardCells() {
   const createdCells = [];
-
-  for (let index = 0; index < 9; index += 1) {
+  for (let i = 0; i < 9; i += 1) {
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = "cell";
-    cell.dataset.index = String(index);
-    cell.dataset.row = String(Math.floor(index / 3));
-    cell.dataset.column = String(index % 3);
+    cell.dataset.index = String(i);
     cell.setAttribute("role", "gridcell");
-    cell.setAttribute("aria-label", `Cell ${index + 1}, empty`);
-    cell.tabIndex = index === 0 ? 0 : -1;
+    cell.setAttribute("aria-label", `Cell ${i + 1}, empty`);
     cell.addEventListener("click", handleCellSelect);
-    cell.addEventListener("pointerdown", attachButtonRipple);
     elements.board.appendChild(cell);
     createdCells.push(cell);
   }
-
   return createdCells;
+}
+
+function createParticles() {
+  const count = 12;
+  for (let i = 0; i < count; i += 1) {
+    const particle = document.createElement("span");
+    particle.className = "particle";
+    particle.style.setProperty("--x", `${Math.random() * 100}%`);
+    particle.style.setProperty("--size", `${1 + Math.random() * 3}px`);
+    particle.style.setProperty("--duration", `${8 + Math.random() * 8}s`);
+    particle.style.setProperty("--delay", `${Math.random() * 6}s`);
+    particle.style.setProperty("--drift", `${-20 + Math.random() * 40}px`);
+    elements.particleLayer.appendChild(particle);
+  }
 }
 
 function loadFromSession(key, fallback) {
@@ -553,7 +527,6 @@ function loadFromSession(key, fallback) {
     if (!raw) {
       return { ...fallback };
     }
-
     const parsed = JSON.parse(raw);
     return { ...fallback, ...parsed };
   } catch {
@@ -561,15 +534,6 @@ function loadFromSession(key, fallback) {
   }
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function formatDuration(milliseconds) {
-  const totalSeconds = milliseconds / 1000;
-  return `${totalSeconds.toFixed(1)}s`;
 }

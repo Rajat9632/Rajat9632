@@ -3,160 +3,96 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="dark" />
-  <title>Quantum Grid | Hidden Arcade</title>
-  <link rel="stylesheet" href="./style.css" />
+  <title>Ink Arcade | Challenge the Creator</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <div class="arcade-shell">
-    <div class="ambient-orb ambient-orb--one" aria-hidden="true"></div>
-    <div class="ambient-orb ambient-orb--two" aria-hidden="true"></div>
-    <div class="scanline-layer" aria-hidden="true"></div>
+    <div class="paper-texture" aria-hidden="true"></div>
+    <div class="hatch-layer" aria-hidden="true"></div>
     <div id="particleLayer" class="particle-layer" aria-hidden="true"></div>
 
     <header class="top-bar">
-      <div>
-        <p class="eyebrow">hidden arcade build</p>
-        <p class="brand">QUANTUM GRID</p>
-      </div>
-
-      <div class="control-cluster">
-        <label class="volume-control" for="volumeSlider">
-          <span>Volume</span>
-          <input id="volumeSlider" type="range" min="0" max="100" value="72" />
-        </label>
-        <button
-          id="muteToggle"
-          class="ghost-btn"
-          type="button"
-          aria-label="Toggle sound effects"
-          aria-pressed="false"
-        >
-          Sound On
-        </button>
-      </div>
+      <p class="brand">INK ARCADE // TIC-TAC-TOE</p>
+      <button
+        id="muteToggle"
+        class="ghost-btn"
+        type="button"
+        aria-label="Toggle sound effects"
+        aria-pressed="false"
+      >
+        Sound On
+      </button>
     </header>
 
-    <main class="stage">
-      <section id="bootScreen" class="screen boot-screen is-active" aria-live="polite" aria-label="System boot sequence">
-        <div class="terminal-panel glass-panel">
-          <div class="terminal-header">
-            <span class="terminal-chip"></span>
-            <span class="terminal-chip"></span>
-            <span class="terminal-chip"></span>
-            <span class="terminal-title">SYSTEM BOOT</span>
-          </div>
-
-          <div class="terminal-body">
-            <p class="boot-cursor-line"><span class="boot-cursor" aria-hidden="true">▍</span></p>
-            <p id="bootLine" class="boot-line">Booting Quantum Grid...</p>
-            <p id="bootPercent" class="boot-percent">0%</p>
-            <ul id="bootFeed" class="boot-feed" aria-hidden="true"></ul>
-          </div>
-        </div>
+    <main class="game-stage">
+      <section id="bootScreen" class="screen boot-screen is-active" aria-live="polite">
+        <p class="insert-coin">PRESS START</p>
+        <button id="startBtn" class="primary-btn" type="button">Start</button>
       </section>
 
       <section id="introScreen" class="screen intro-screen" aria-hidden="true">
-        <div class="hero-panel glass-panel">
-          <p class="hero-kicker">retro futuristic arcade</p>
-          <h1>Quantum Grid</h1>
-          <p class="hero-copy">
-            Challenge the creator's AI. Human is X. AI is O. Victory is not part of the game theory.
-          </p>
-
-          <div class="difficulty-card">
-            <span class="difficulty-label">Difficulty</span>
-            <strong>IMPOSSIBLE</strong>
-          </div>
-
-          <div class="hero-actions">
-            <button id="startBtn" class="primary-btn" type="button">Start</button>
-            <p class="hero-note">Mathematically perfect play. No randomness. No excuses.</p>
-          </div>
-        </div>
+        <h1>Challenge the Creator</h1>
+        <p>Can you beat my AI on paper?</p>
       </section>
 
       <section id="gameScreen" class="screen game-screen" aria-hidden="true">
-        <div class="hud-grid">
-          <section class="hud-card glass-panel">
-            <span class="hud-label">Turn</span>
-            <p id="turnText" class="hud-value" aria-live="polite">Your move.</p>
-          </section>
-
-          <section class="hud-card glass-panel">
-            <span class="hud-label">AI Feed</span>
-            <p id="aiMessage" class="hud-value hud-value--muted" aria-live="polite"></p>
-          </section>
-
-          <div id="thinkingIndicator" class="thinking-indicator glass-panel" role="status" aria-live="polite" hidden>
-            AI thinking <span class="dots" aria-hidden="true"></span>
-          </div>
+        <div class="hud">
+          <p id="turnText" class="turn-text" aria-live="polite">Your move: place X.</p>
+          <p id="aiMessage" class="ai-message" aria-live="polite"></p>
         </div>
 
         <div class="game-layout">
-          <section class="board-shell glass-panel">
-            <div class="board-topline">
-              <span>human: X</span>
-              <span>creator AI: O</span>
+          <div class="board-shell">
+            <div id="board" class="board" role="grid" aria-label="Tic-Tac-Toe board"></div>
+            <div id="winningLine" class="winning-line" aria-hidden="true"></div>
+            <div id="thinkingIndicator" class="thinking-indicator" role="status" aria-live="polite" hidden>
+              AI thinking<span class="dots" aria-hidden="true"></span>
             </div>
+          </div>
 
-            <div class="board-frame">
-              <div id="board" class="board" role="grid" aria-label="Quantum Grid board"></div>
-              <div id="winningLine" class="winning-line" aria-hidden="true"></div>
-            </div>
-          </section>
-
-          <aside class="side-panel" aria-label="Session stats and achievements">
-            <section class="panel-card glass-panel">
+          <aside class="side-panel" aria-label="Game stats and achievements">
+            <section class="panel-card">
               <h2>Session Stats</h2>
               <dl class="stat-grid">
                 <div><dt>Games Played</dt><dd id="statGames">0</dd></div>
+                <div><dt>Wins</dt><dd id="statWins">0</dd></div>
                 <div><dt>Draws</dt><dd id="statDraws">0</dd></div>
                 <div><dt>Losses</dt><dd id="statLosses">0</dd></div>
-                <div><dt>Current Streak</dt><dd id="statStreak">0</dd></div>
-                <div><dt>Fastest Draw</dt><dd id="statFastestDraw">--</dd></div>
               </dl>
             </section>
 
-            <section class="panel-card glass-panel">
+            <section class="panel-card">
               <h2>Achievements</h2>
               <ul class="achievement-list">
-                <li id="ach-first-match">First Match</li>
-                <li id="ach-persistent-challenger">Persistent Challenger</li>
-                <li id="ach-five-draws">Five Draws</li>
-                <li id="ach-ten-games">Ten Games</li>
-                <li id="ach-survivor">Survivor</li>
-                <li id="ach-impossible-challenger">Impossible Challenger</li>
+                <li id="ach-first-game">First Game</li>
+                <li id="ach-first-draw">First Draw</li>
+                <li id="ach-persistent-challenger">Persistent Challenger (10 games)</li>
+                <li id="ach-master-survivor">Master Survivor (5 draws)</li>
               </ul>
             </section>
           </aside>
         </div>
 
-        <div id="endOverlay" class="end-overlay glass-panel" role="dialog" aria-live="assertive" aria-modal="false" hidden>
-          <p class="end-kicker">match complete</p>
+        <div id="endOverlay" class="end-overlay" role="dialog" aria-live="assertive" aria-modal="false" hidden>
           <h2 id="endTitle"></h2>
           <p id="endSubtitle"></p>
-          <p id="achievementBanner" class="achievement-banner" hidden></p>
-          <div class="end-actions">
-            <a
-              id="exploreProjectsLink"
-              class="explore-link"
-              href="https://github.com/Rajat9632?tab=repositories"
-              target="_blank"
-              rel="noopener noreferrer"
-              hidden
-            >
-              Explore Projects →
-            </a>
-            <button id="playAgainBtn" class="primary-btn" type="button">Play Again</button>
-          </div>
+          <a
+            id="exploreProjectsLink"
+            class="explore-link"
+            href="https://github.com/Rajat9632?tab=repositories"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+          >
+            Explore AI Projects
+          </a>
+          <button id="playAgainBtn" class="primary-btn" type="button">Play Again</button>
         </div>
-
-        <div id="toastStack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
       </section>
     </main>
   </div>
 
-  <script type="module" src="./game.js"></script>
+  <script src="./game.js" defer></script>
 </body>
 </html>
