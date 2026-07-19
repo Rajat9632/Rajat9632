@@ -3,95 +3,151 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ink Arcade | Challenge the Creator</title>
+  <title>Ink Arcade · Challenge the Creator | Rajat</title>
+  <meta name="description" content="A hidden arcade inside Rajat's portfolio. Challenge an unbeatable AI at Tic-Tac-Toe — draw or lose, never win." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <div class="arcade-shell">
-    <div class="paper-texture" aria-hidden="true"></div>
-    <div class="hatch-layer" aria-hidden="true"></div>
-    <div id="particleLayer" class="particle-layer" aria-hidden="true"></div>
 
-    <header class="top-bar">
-      <p class="brand">INK ARCADE // TIC-TAC-TOE</p>
-      <button
-        id="muteToggle"
-        class="ghost-btn"
-        type="button"
-        aria-label="Toggle sound effects"
-        aria-pressed="false"
-      >
-        Sound On
+  <!-- ═══════════════════════════════════════════
+       PHASE 0 — DISCOVERY / PORTAL
+       ═══════════════════════════════════════════ -->
+  <section id="phaseDiscovery" class="phase phase--discovery is-active" aria-label="Discovery screen">
+    <canvas id="inkCanvas" class="ink-canvas" aria-hidden="true"></canvas>
+    <div class="discovery__content">
+      <p id="discoveryLine1" class="discovery__line discovery__line--whisper">You found something.</p>
+      <p id="discoveryLine2" class="discovery__line discovery__line--hidden">A door left ajar between the lines of code.</p>
+      <button id="enterBtn" class="discovery__enter discovery__line--hidden" type="button" aria-label="Enter the arcade">
+        <span class="enter__text">Step inside</span>
+        <span class="enter__glyph" aria-hidden="true">→</span>
       </button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 1 — CHALLENGE INTRO
+       ═══════════════════════════════════════════ -->
+  <section id="phaseChallenge" class="phase phase--challenge" aria-label="Challenge introduction" aria-hidden="true">
+    <div class="challenge__frame">
+      <p class="challenge__kicker">ink arcade presents</p>
+      <h1 class="challenge__title">
+        <span class="title__word title__word--1">Challenge</span>
+        <span class="title__word title__word--2">the</span>
+        <span class="title__word title__word--3">Creator</span>
+      </h1>
+      <div class="challenge__rule-line" aria-hidden="true"></div>
+      <p class="challenge__subtitle">A perfect AI that never cheats. It simply never loses.</p>
+      <p class="challenge__dare">Draw — or fall.</p>
+      <button id="beginBtn" class="challenge__begin" type="button">
+        <span class="begin__label">Begin</span>
+        <svg class="begin__icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M12 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       PHASE 2 — GAME
+       ═══════════════════════════════════════════ -->
+  <section id="phaseGame" class="phase phase--game" aria-label="Tic-Tac-Toe game" aria-hidden="true">
+
+    <!-- Ambient background particles -->
+    <div id="ambientParticles" class="ambient-particles" aria-hidden="true"></div>
+
+    <!-- Top bar -->
+    <header class="game-bar">
+      <p class="game-bar__brand">INK ARCADE</p>
+      <div class="game-bar__controls">
+        <div class="game-bar__score" aria-label="Session score">
+          <span class="score__label">W</span><span id="scoreWins" class="score__value">0</span>
+          <span class="score__sep" aria-hidden="true">·</span>
+          <span class="score__label">D</span><span id="scoreDraws" class="score__value">0</span>
+          <span class="score__sep" aria-hidden="true">·</span>
+          <span class="score__label">L</span><span id="scoreLosses" class="score__value">0</span>
+        </div>
+        <button id="muteToggle" class="icon-btn" type="button" aria-label="Toggle sound" aria-pressed="false">
+          <svg id="soundOnIcon" class="icon-btn__svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+          <svg id="soundOffIcon" class="icon-btn__svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+          </svg>
+        </button>
+      </div>
     </header>
 
+    <!-- Main game area -->
     <main class="game-stage">
-      <section id="bootScreen" class="screen boot-screen is-active" aria-live="polite">
-        <p class="insert-coin">PRESS START</p>
-        <button id="startBtn" class="primary-btn" type="button">Start</button>
-      </section>
+      <!-- HUD -->
+      <div class="hud">
+        <p id="turnIndicator" class="hud__turn" aria-live="polite">Your move</p>
+        <p id="aiTaunt" class="hud__taunt" aria-live="polite"></p>
+      </div>
 
-      <section id="introScreen" class="screen intro-screen" aria-hidden="true">
-        <h1>Challenge the Creator</h1>
-        <p>Can you beat my AI on paper?</p>
-      </section>
-
-      <section id="gameScreen" class="screen game-screen" aria-hidden="true">
-        <div class="hud">
-          <p id="turnText" class="turn-text" aria-live="polite">Your move: place X.</p>
-          <p id="aiMessage" class="ai-message" aria-live="polite"></p>
+      <!-- Board -->
+      <div class="board-wrapper">
+        <div class="board-frame">
+          <div id="board" class="board" role="grid" aria-label="Tic-Tac-Toe board"></div>
+          <svg id="winLine" class="win-line" aria-hidden="true">
+            <line id="winLineStroke" x1="0" y1="0" x2="0" y2="0" />
+          </svg>
         </div>
-
-        <div class="game-layout">
-          <div class="board-shell">
-            <div id="board" class="board" role="grid" aria-label="Tic-Tac-Toe board"></div>
-            <div id="winningLine" class="winning-line" aria-hidden="true"></div>
-            <div id="thinkingIndicator" class="thinking-indicator" role="status" aria-live="polite" hidden>
-              AI thinking<span class="dots" aria-hidden="true"></span>
-            </div>
-          </div>
-
-          <aside class="side-panel" aria-label="Game stats and achievements">
-            <section class="panel-card">
-              <h2>Session Stats</h2>
-              <dl class="stat-grid">
-                <div><dt>Games Played</dt><dd id="statGames">0</dd></div>
-                <div><dt>Wins</dt><dd id="statWins">0</dd></div>
-                <div><dt>Draws</dt><dd id="statDraws">0</dd></div>
-                <div><dt>Losses</dt><dd id="statLosses">0</dd></div>
-              </dl>
-            </section>
-
-            <section class="panel-card">
-              <h2>Achievements</h2>
-              <ul class="achievement-list">
-                <li id="ach-first-game">First Game</li>
-                <li id="ach-first-draw">First Draw</li>
-                <li id="ach-persistent-challenger">Persistent Challenger (10 games)</li>
-                <li id="ach-master-survivor">Master Survivor (5 draws)</li>
-              </ul>
-            </section>
-          </aside>
+        <div id="thinkingBar" class="thinking-bar" role="status" aria-live="polite" hidden>
+          <div class="thinking-bar__track"><div class="thinking-bar__fill"></div></div>
+          <span class="thinking-bar__label">AI is thinking</span>
         </div>
+      </div>
 
-        <div id="endOverlay" class="end-overlay" role="dialog" aria-live="assertive" aria-modal="false" hidden>
-          <h2 id="endTitle"></h2>
-          <p id="endSubtitle"></p>
+      <!-- Side panel -->
+      <aside class="side-panel" aria-label="Game statistics">
+        <div class="panel-card panel-card--stats">
+          <h2 class="panel-card__heading">Session</h2>
+          <div class="stat-row"><span class="stat-row__label">Games</span><span id="statGames" class="stat-row__value">0</span></div>
+          <div class="stat-row"><span class="stat-row__label">Best streak</span><span id="statStreak" class="stat-row__value">0</span></div>
+        </div>
+        <div class="panel-card panel-card--achievements">
+          <h2 class="panel-card__heading">Milestones</h2>
+          <ul class="milestone-list">
+            <li id="ms-first" class="milestone" data-icon="◇">First Blood</li>
+            <li id="ms-draw" class="milestone" data-icon="◈">Survivor</li>
+            <li id="ms-tenacious" class="milestone" data-icon="◆">Tenacious (10 games)</li>
+            <li id="ms-master" class="milestone" data-icon="★">Master (5 draws)</li>
+          </ul>
+        </div>
+      </aside>
+    </main>
+
+    <!-- End overlay -->
+    <div id="endOverlay" class="end-overlay" role="dialog" aria-modal="true" aria-live="assertive" hidden>
+      <div class="end-overlay__backdrop"></div>
+      <div class="end-overlay__card">
+        <div id="endIcon" class="end-overlay__icon" aria-hidden="true"></div>
+        <h2 id="endTitle" class="end-overlay__title"></h2>
+        <p id="endSubtitle" class="end-overlay__subtitle"></p>
+        <div class="end-overlay__actions">
           <a
-            id="exploreProjectsLink"
-            class="explore-link"
+            id="exploreLink"
+            class="end-btn end-btn--outline"
             href="https://github.com/Rajat9632?tab=repositories"
             target="_blank"
             rel="noopener noreferrer"
             hidden
           >
-            Explore AI Projects
+            Explore my projects
           </a>
-          <button id="playAgainBtn" class="primary-btn" type="button">Play Again</button>
+          <button id="playAgainBtn" class="end-btn end-btn--solid" type="button">
+            Play again
+          </button>
         </div>
-      </section>
-    </main>
-  </div>
+      </div>
+    </div>
+  </section>
 
   <script src="./game.js" defer></script>
 </body>
