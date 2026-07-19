@@ -278,7 +278,7 @@ function finishTurn(mark) {
 
   updatePhaseUI();
   renderBoard();
-  if (state.isPlayerTurn) {
+  if (!state.isPlayerTurn) {
     elements.thinking.hidden = false;
     elements.aiMessage.textContent = "Ink is weighing every legal move.";
     state.aiTimer = window.setTimeout(playAiTurn, 440);
