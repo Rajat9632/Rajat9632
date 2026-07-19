@@ -72,6 +72,9 @@ const state = {
   muted: sessionStorage.getItem(STORAGE_KEYS.muted) === "true"
 };
 
+const placementSolverMemo = new Map();
+let movementSolverTable = null;
+
 const audio = {
   context: null,
   ensureContext() {
@@ -411,62 +414,141 @@ function chooseBestAiAction() {
   const actions = orderActions(getLegalActions(root.board, root.placed, AI_MARK));
   if (!actions.length) return null;
 
-  const immediateWin = actions.find((action) => {
-    const next = applyAction(root.board, action, AI_MARK);
-    const result = evaluateBoard(next);
-    return result && result.winner === AI_MARK;
-  });
-  if (immediateWin) return immediateWin;
-
-  const depth = getPhase(root.placed) === "moving" ? 7 : 6;
-  const memo = new Map();
-  let bestScore = -Infinity;
-  let bestActions = [];
+  let bestValue = -Infinity;
+  let bestAction = actions[0];
   for (const action of actions) {
     const next = makeSearchState(root, action, AI_MARK, PLAYER_MARK);
-    const score = minimax(next, depth - 1, -Infinity, Infinity, new Set(), memo);
-    if (score > bestScore) {
-      bestScore = score;
-      bestActions = [action];
-    } else if (score === bestScore) {
-      bestActions.push(action);
+    const value = solveGameState(next);
+    if (value > bestValue) {
+      bestValue = value;
+      bestAction = action;
     }
   }
-  return bestActions[Math.floor(Math.random() * bestActions.length)] || actions[0];
+  return bestAction;
 }
 
-function minimax(node, depth, alpha, beta, path, memo) {
+function solveGameState(node) {
   const outcome = evaluateBoard(node.board);
-  if (outcome && outcome.winner === AI_MARK) return 10000 + depth;
-  if (outcome && outcome.winner === PLAYER_MARK) return -10000 - depth;
-  if (depth === 0) return evaluatePosition(node.board);
+  if (outcome) return outcome.winner === AI_MARK ? 1 : -1;
+  if (getPhase(node.placed) === "moving") {
+    return getMovingStateValue(node.board, node.turn);
+  }
 
-  const stateKey = node.board.join("") + "|" + node.placed.X + node.placed.O + "|" + node.turn;
-  if (path.has(stateKey)) return 0;
-  const memoKey = stateKey + "|" + depth;
-  if (memo.has(memoKey)) return memo.get(memoKey);
-
+  const memoKey = node.board.join("") + "|" + node.placed.X + node.placed.O + "|" + node.turn;
+  if (placementSolverMemo.has(memoKey)) return placementSolverMemo.get(memoKey);
   const actions = orderActions(getLegalActions(node.board, node.placed, node.turn));
-  if (!actions.length) return 0;
-
-  path.add(stateKey);
-  let value = node.turn === AI_MARK ? -Infinity : Infinity;
+  let value = node.turn === AI_MARK ? -1 : 1;
   for (const action of actions) {
     const nextTurn = node.turn === AI_MARK ? PLAYER_MARK : AI_MARK;
     const next = makeSearchState(node, action, node.turn, nextTurn);
-    const score = minimax(next, depth - 1, alpha, beta, path, memo);
+    const score = solveGameState(next);
     if (node.turn === AI_MARK) {
       value = Math.max(value, score);
-      alpha = Math.max(alpha, value);
     } else {
       value = Math.min(value, score);
-      beta = Math.min(beta, value);
     }
-    if (beta <= alpha) break;
+    if (value === (node.turn === AI_MARK ? 1 : -1)) break;
   }
-  path.delete(stateKey);
-  memo.set(memoKey, value);
+  placementSolverMemo.set(memoKey, value);
   return value;
+}
+
+function getMovingStateValue(board, turn) {
+  if (!movementSolverTable) {
+    movementSolverTable = buildMovementSolverTable();
+  }
+  const entry = movementSolverTable.get(createMovementKey(board, turn));
+  return entry ? entry.value : 0;
+}
+
+function buildMovementSolverTable() {
+  const nodes = new Map();
+  const predecessors = new Map();
+  const squares = Array.from({ length: 9 }, (_, index) => index);
+
+  forEachCombination(squares, 3, (xSquares) => {
+    const remaining = squares.filter((square) => !xSquares.includes(square));
+    forEachCombination(remaining, 3, (oSquares) => {
+      const board = Array(9).fill("");
+      xSquares.forEach((square) => { board[square] = PLAYER_MARK; });
+      oSquares.forEach((square) => { board[square] = AI_MARK; });
+
+      [PLAYER_MARK, AI_MARK].forEach((turn) => {
+        const key = createMovementKey(board, turn);
+        nodes.set(key, {
+          key,
+          board,
+          turn,
+          value: null,
+          remaining: 0
+        });
+      });
+    });
+  });
+
+  const queue = [];
+  nodes.forEach((node) => {
+    const outcome = evaluateBoard(node.board);
+    if (outcome) {
+      node.value = outcome.winner === AI_MARK ? 1 : -1;
+      queue.push(node.key);
+      return;
+    }
+
+    const actions = getLegalActions(node.board, { X: 3, O: 3 }, node.turn);
+    node.remaining = actions.length;
+    actions.forEach((action) => {
+      const nextBoard = applyAction(node.board, action, node.turn);
+      const nextTurn = node.turn === AI_MARK ? PLAYER_MARK : AI_MARK;
+      const nextKey = createMovementKey(nextBoard, nextTurn);
+      const list = predecessors.get(nextKey) || [];
+      list.push(node.key);
+      predecessors.set(nextKey, list);
+    });
+  });
+
+  while (queue.length) {
+    const child = nodes.get(queue.shift());
+    const previousKeys = predecessors.get(child.key) || [];
+    previousKeys.forEach((previousKey) => {
+      const previous = nodes.get(previousKey);
+      if (previous.value !== null) return;
+
+      const wantedValue = previous.turn === AI_MARK ? 1 : -1;
+      if (child.value === wantedValue) {
+        previous.value = wantedValue;
+        queue.push(previous.key);
+      } else if (child.value === -wantedValue) {
+        previous.remaining -= 1;
+        if (previous.remaining === 0) {
+          previous.value = -wantedValue;
+          queue.push(previous.key);
+        }
+      }
+    });
+  }
+
+  nodes.forEach((node) => {
+    if (node.value === null) node.value = 0;
+  });
+  return nodes;
+}
+
+function createMovementKey(board, turn) {
+  return board.join("") + "|" + turn;
+}
+
+function forEachCombination(items, count, callback) {
+  const visit = (start, chosen) => {
+    if (chosen.length === count) {
+      callback(chosen);
+      return;
+    }
+    for (let index = start; index <= items.length - (count - chosen.length); index += 1) {
+      visit(index + 1, chosen.concat(items[index]));
+    }
+  };
+  visit(0, []);
 }
 
 function makeSearchState(node, action, mark, nextTurn) {
@@ -487,26 +569,6 @@ function getLegalActions(board, placed, mark) {
 function orderActions(actions) {
   const weights = [3, 1, 3, 1, 5, 1, 3, 1, 3];
   return actions.slice().sort((first, second) => weights[second.to] - weights[first.to]);
-}
-
-function evaluatePosition(board) {
-  let score = 0;
-  const weights = [3, 1, 3, 1, 5, 1, 3, 1, 3];
-  for (const combo of WIN_COMBINATIONS) {
-    const marks = combo.map((index) => board[index]);
-    const aiCount = marks.filter((mark) => mark === AI_MARK).length;
-    const playerCount = marks.filter((mark) => mark === PLAYER_MARK).length;
-    if (aiCount && playerCount) continue;
-    if (aiCount === 2) score += 120;
-    else if (aiCount === 1) score += 15;
-    else if (playerCount === 2) score -= 145;
-    else if (playerCount === 1) score -= 18;
-  }
-  board.forEach((mark, index) => {
-    if (mark === AI_MARK) score += weights[index];
-    else if (mark === PLAYER_MARK) score -= weights[index];
-  });
-  return score;
 }
 
 function evaluateBoard(board) {
