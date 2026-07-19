@@ -1,689 +1,844 @@
 "use strict";
 
-const PLAYER_MARK = "X";
-const AI_MARK = "O";
-const TOKENS_PER_PLAYER = 3;
-const REPETITION_LIMIT = 3;
-const WIN_COMBINATIONS = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  [0, 3, 6], [1, 4, 7], [2, 5, 8]
+/* ═══════════════════════════════════════════════════
+   INK ARCADE — Game Engine
+   "Challenge the Creator" · Tic-Tac-Toe
+   ═══════════════════════════════════════════════════ */
+
+
+/* ── CONSTANTS ──────────────────────────────────── */
+
+const PLAYER = "X";
+const AI     = "O";
+
+const WIN_LINES = [
+  [0,1,2], [3,4,5], [6,7,8],  // rows
+  [0,3,6], [1,4,7], [2,5,8],  // cols
+  [0,4,8], [2,4,6]            // diags
 ];
-const AI_LINES = [
-  "Ink is considering every route.",
-  "A clean move changes everything.",
-  "Searching the empty squares.",
-  "The board remembers.",
-  "No square is out of reach."
-];
-const STORAGE_KEYS = {
-  stats: "ink-arcade:three-token:stats",
-  achievements: "ink-arcade:three-token:achievements",
-  muted: "ink-arcade:three-token:muted"
+
+const TAUNTS = {
+  opening: [
+    "Let's see what you've got.",
+    "The ink is watching.",
+    "Every move is permanent.",
+  ],
+  midgame: [
+    "Interesting choice.",
+    "Predictable.",
+    "I've seen this before.",
+    "Not bad. Not good either.",
+    "Bold.",
+    "Calculated.",
+  ],
+  aiWin: [
+    "The ink never lies.",
+    "Better luck next sketch.",
+    "I warned you.",
+    "Every line led here.",
+  ],
+  draw: [
+    "You survived. Barely.",
+    "Stalemate. Respect.",
+    "Not many manage that.",
+    "A draw is a mark of discipline.",
+  ],
 };
 
-const elements = {
-  bootScreen: document.getElementById("bootScreen"),
-  introScreen: document.getElementById("introScreen"),
-  gameScreen: document.getElementById("gameScreen"),
-  startBtn: document.getElementById("startBtn"),
-  playAgainBtn: document.getElementById("playAgainBtn"),
-  board: document.getElementById("board"),
-  winningLine: document.getElementById("winningLine"),
-  thinking: document.getElementById("thinkingIndicator"),
-  phaseLabel: document.getElementById("phaseLabel"),
-  turnText: document.getElementById("turnText"),
-  aiMessage: document.getElementById("aiMessage"),
-  endOverlay: document.getElementById("endOverlay"),
-  endTitle: document.getElementById("endTitle"),
-  endSubtitle: document.getElementById("endSubtitle"),
-  exploreLink: document.getElementById("exploreProjectsLink"),
-  muteToggle: document.getElementById("muteToggle"),
-  particleLayer: document.getElementById("particleLayer"),
-  statGames: document.getElementById("statGames"),
-  statWins: document.getElementById("statWins"),
-  statDraws: document.getElementById("statDraws"),
-  statLosses: document.getElementById("statLosses"),
-  statMovingRounds: document.getElementById("statMovingRounds"),
-  achFirstGame: document.getElementById("ach-first-game"),
-  achFirstDraw: document.getElementById("ach-first-draw"),
-  achPersistentChallenger: document.getElementById("ach-persistent-challenger"),
-  achMasterSurvivor: document.getElementById("ach-master-survivor"),
-  achFirstMove: document.getElementById("ach-first-move")
-};
+const STORAGE_KEY = "ink-arcade:state";
+
+
+/* ── STATE ──────────────────────────────────────── */
 
 const state = {
   board: Array(9).fill(""),
-  placed: { X: 0, O: 0 },
   isPlayerTurn: true,
   gameActive: false,
-  selectedIndex: null,
   aiTimer: null,
-  aiMessageIndex: 0,
-  winningCombo: null,
-  enteredMovingPhase: false,
-  positionVisits: new Map(),
-  stats: loadFromSession(STORAGE_KEYS.stats, {
-    gamesPlayed: 0, wins: 0, draws: 0, losses: 0, movingRounds: 0
-  }),
-  achievements: loadFromSession(STORAGE_KEYS.achievements, {
-    firstGame: false, firstDraw: false, persistentChallenger: false,
-    masterSurvivor: false, firstMove: false
-  }),
-  muted: sessionStorage.getItem(STORAGE_KEYS.muted) === "true"
+  moveCount: 0,
+  winCombo: null,
+  selectedIdx: null,
+  stats: { games: 0, wins: 0, draws: 0, losses: 0, bestStreak: 0, currentStreak: 0 },
+  milestones: { first: false, draw: false, tenacious: false, master: false },
+  muted: false,
 };
 
-const placementSolverMemo = new Map();
-let movementSolverTable = null;
+
+/* ── AUDIO ENGINE ───────────────────────────────── */
 
 const audio = {
-  context: null,
-  ensureContext() {
-    if (!this.context) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.context = new AudioCtx();
-    }
-    if (this.context && this.context.state === "suspended") {
-      this.context.resume().catch(() => {});
-    }
-  },
-  beep(options) {
-    const settings = Object.assign({
-      frequency: 440, duration: 0.09, type: "sine", volume: 0.05, slideTo: null
-    }, options);
-    if (state.muted || !this.context) return;
+  ctx: null,
 
-    const oscillator = this.context.createOscillator();
-    const gain = this.context.createGain();
-    const now = this.context.currentTime;
-    oscillator.type = settings.type;
-    oscillator.frequency.setValueAtTime(settings.frequency, now);
-    if (settings.slideTo) {
-      oscillator.frequency.linearRampToValueAtTime(settings.slideTo, now + settings.duration);
-    }
+  init() {
+    if (this.ctx) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) this.ctx = new Ctx();
+  },
+
+  resume() {
+    if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {});
+  },
+
+  play(freq, dur = 0.09, type = "sine", vol = 0.04, slide = null) {
+    if (state.muted || !this.ctx) return;
+    this.resume();
+    const now = this.ctx.currentTime;
+    const osc  = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    if (slide) osc.frequency.linearRampToValueAtTime(slide, now + dur);
+
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(settings.volume, now + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + settings.duration);
-    oscillator.connect(gain);
-    gain.connect(this.context.destination);
-    oscillator.start(now);
-    oscillator.stop(now + settings.duration + 0.01);
-  }
+    gain.gain.exponentialRampToValueAtTime(vol, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.connect(gain).connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + dur + 0.01);
+  },
+
+  placeX()   { this.play(520, 0.07, "triangle", 0.04); },
+  placeO()   { this.play(340, 0.09, "sawtooth", 0.03, 280); },
+  win()      { this.play(680, 0.12, "triangle", 0.035, 820); },
+  lose()     { this.play(200, 0.15, "square", 0.04, 140); },
+  draw()     { this.play(430, 0.11, "sine", 0.035); },
+  click()    { this.play(380, 0.06, "triangle", 0.03); },
+  unlock()   { this.play(600, 0.08, "sine", 0.03, 800); },
+  enter()    { this.play(280, 0.12, "square", 0.04, 380); },
 };
 
-const cells = createBoardCells();
-createParticles();
-updateStatsUI();
-updateAchievementUI();
-updateMuteUI();
-bindEvents();
 
-function bindEvents() {
-  elements.startBtn.addEventListener("click", runOpeningSequence);
-  elements.playAgainBtn.addEventListener("click", () => {
-    audio.ensureContext();
-    audio.beep({ frequency: 380, duration: 0.08, type: "triangle", volume: 0.04 });
-    startNewRound();
-  });
-  elements.muteToggle.addEventListener("click", () => {
-    audio.ensureContext();
-    state.muted = !state.muted;
-    sessionStorage.setItem(STORAGE_KEYS.muted, String(state.muted));
-    updateMuteUI();
-    if (!state.muted) {
-      audio.beep({ frequency: 520, duration: 0.07, type: "sine", volume: 0.035, slideTo: 620 });
-    }
-  });
-  window.addEventListener("resize", () => {
-    if (state.winningCombo) renderWinningLine(state.winningCombo);
-  });
-}
+/* ── DOM REFS ───────────────────────────────────── */
 
-function runOpeningSequence() {
-  audio.ensureContext();
-  audio.beep({ frequency: 280, duration: 0.11, type: "square", volume: 0.04, slideTo: 360 });
-  elements.bootScreen.classList.remove("is-active");
-  elements.introScreen.classList.add("is-active");
-  elements.introScreen.setAttribute("aria-hidden", "false");
-  window.setTimeout(() => {
-    elements.introScreen.classList.remove("is-active");
-    elements.introScreen.setAttribute("aria-hidden", "true");
-    elements.gameScreen.classList.add("is-active", "is-ready");
-    elements.gameScreen.setAttribute("aria-hidden", "false");
-    startNewRound();
-  }, 1100);
-}
+const $ = (id) => document.getElementById(id);
 
-function startNewRound() {
-  clearAiTimer();
-  state.board = Array(9).fill("");
-  state.placed = { X: 0, O: 0 };
-  state.isPlayerTurn = true;
-  state.gameActive = true;
-  state.selectedIndex = null;
-  state.winningCombo = null;
-  state.enteredMovingPhase = false;
-  state.positionVisits = new Map();
-  elements.gameScreen.classList.remove("is-complete");
-  elements.endOverlay.classList.remove("is-visible");
-  elements.endOverlay.hidden = true;
-  elements.exploreLink.hidden = true;
-  elements.aiMessage.textContent = "";
-  elements.thinking.hidden = true;
-  elements.winningLine.classList.remove("is-visible");
-  updatePhaseUI();
-  renderBoard();
-  cells[0].focus();
-}
+const dom = {
+  phaseDiscovery: $("phaseDiscovery"),
+  phaseChallenge: $("phaseChallenge"),
+  phaseGame:      $("phaseGame"),
 
-function getPhase(placed) {
-  const count = placed || state.placed;
-  return count.X === TOKENS_PER_PLAYER && count.O === TOKENS_PER_PLAYER ? "moving" : "placing";
-}
+  inkCanvas:  $("inkCanvas"),
+  enterBtn:   $("enterBtn"),
+  beginBtn:   $("beginBtn"),
 
-function updatePhaseUI() {
-  const moving = getPhase() === "moving";
-  elements.phaseLabel.textContent = moving
-    ? "Phase 2 · move a token to any empty square"
-    : "Phase 1 · placing tokens (" + state.placed.X + "/3 · " + state.placed.O + "/3)";
+  board:       $("board"),
+  winLine:     $("winLine"),
+  winStroke:   $("winLineStroke"),
+  thinkingBar: $("thinkingBar"),
+  turnText:    $("turnIndicator"),
+  aiTaunt:     $("aiTaunt"),
 
-  if (!state.gameActive) return;
-  if (!state.isPlayerTurn) {
-    elements.turnText.textContent = "AI is making its move.";
-  } else if (moving && state.selectedIndex === null) {
-    elements.turnText.textContent = "Your move: select one of your X tokens.";
-  } else if (moving) {
-    elements.turnText.textContent = "Now choose any empty square.";
-  } else {
-    elements.turnText.textContent = "Your move: place an X on an empty square.";
+  muteToggle:  $("muteToggle"),
+  soundOnIcon: $("soundOnIcon"),
+  soundOffIcon:$("soundOffIcon"),
+
+  scoreWins:   $("scoreWins"),
+  scoreDraws:  $("scoreDraws"),
+  scoreLosses: $("scoreLosses"),
+  statGames:   $("statGames"),
+  statStreak:  $("statStreak"),
+
+  endOverlay:  $("endOverlay"),
+  endIcon:     $("endIcon"),
+  endTitle:    $("endTitle"),
+  endSubtitle: $("endSubtitle"),
+  exploreLink: $("exploreLink"),
+  playAgainBtn:$("playAgainBtn"),
+
+  gameStage:   document.querySelector(".game-stage"),
+  ambientLayer:$("ambientParticles"),
+
+  msFirst:     $("ms-first"),
+  msDraw:      $("ms-draw"),
+  msTenacious: $("ms-tenacious"),
+  msMaster:    $("ms-master"),
+};
+
+
+/* ── CELLS ──────────────────────────────────────── */
+
+const cells = [];
+
+function createBoard() {
+  for (let i = 0; i < 9; i++) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cell";
+    btn.dataset.index = i;
+    btn.setAttribute("role", "gridcell");
+    btn.setAttribute("aria-label", `Cell ${i + 1}, empty`);
+    btn.addEventListener("click", onCellClick);
+    dom.board.appendChild(btn);
+    cells.push(btn);
   }
 }
 
-function renderBoard(action) {
-  cells.forEach((cell, index) => {
-    const mark = state.board[index];
-    cell.textContent = mark;
-    cell.className = "cell";
-    if (mark) {
-      cell.classList.add(mark === PLAYER_MARK ? "mark-x" : "mark-o");
-      cell.setAttribute("aria-label", "Cell " + (index + 1) + ", " + mark);
-    } else {
-      cell.setAttribute("aria-label", "Cell " + (index + 1) + ", empty");
-    }
-    if (action && action.to === index) cell.classList.add("placed");
-    if (state.selectedIndex === index) {
-      cell.classList.add("is-selected");
-      cell.setAttribute("aria-label", "Cell " + (index + 1) + ", X selected. Choose an empty square.");
-    }
-  });
-  setBoardInteractivity();
-}
 
-function setBoardInteractivity() {
-  const moving = getPhase() === "moving";
-  cells.forEach((cell, index) => {
-    if (!state.gameActive || !state.isPlayerTurn) {
-      cell.disabled = true;
-    } else if (!moving) {
-      cell.disabled = Boolean(state.board[index]);
-    } else {
-      cell.disabled = state.board[index] === AI_MARK;
-    }
-  });
-}
+/* ── INK CANVAS — ambient background ────────────── */
 
-function handleCellSelect(event) {
-  const index = Number(event.currentTarget.dataset.index);
-  if (!state.gameActive || !state.isPlayerTurn) return;
+function initInkCanvas() {
+  const canvas = dom.inkCanvas;
+  const ctx = canvas.getContext("2d");
+  let w, h, dots;
+  let animId;
 
-  if (getPhase() === "placing") {
-    if (!state.board[index]) makePlayerAction({ kind: "place", to: index });
-    return;
+  function resize() {
+    w = canvas.width  = window.innerWidth;
+    h = canvas.height = window.innerHeight;
   }
 
-  const mark = state.board[index];
-  if (mark === PLAYER_MARK) {
-    state.selectedIndex = state.selectedIndex === index ? null : index;
-    elements.aiMessage.textContent = state.selectedIndex === null
-      ? "Selection cleared."
-      : "Token selected. Any empty square is legal.";
-    updatePhaseUI();
-    renderBoard();
-  } else if (mark === AI_MARK) {
-    elements.aiMessage.textContent = "That token belongs to the AI.";
-  } else if (state.selectedIndex === null) {
-    elements.aiMessage.textContent = "Select one of your X tokens first.";
-  } else {
-    makePlayerAction({ kind: "move", from: state.selectedIndex, to: index });
-  }
-}
-
-function makePlayerAction(action) {
-  state.selectedIndex = null;
-  applyActionToLiveState(action, PLAYER_MARK);
-  audio.beep({
-    frequency: action.kind === "move" ? 465 : 520,
-    duration: 0.08, type: "triangle", volume: 0.04
-  });
-  finishTurn(PLAYER_MARK);
-}
-
-function finishTurn(mark) {
-  registerMovingPhaseIfNeeded();
-  const outcome = evaluateBoard(state.board);
-  if (outcome) {
-    finishGame(outcome);
-    return;
-  }
-
-  state.isPlayerTurn = mark === AI_MARK;
-  if (recordRepeatedPosition()) {
-    finishGame({ type: "draw", reason: "repetition" });
-    return;
-  }
-
-  updatePhaseUI();
-  renderBoard();
-  if (!state.isPlayerTurn) {
-    elements.thinking.hidden = false;
-    elements.aiMessage.textContent = "Ink is weighing every legal move.";
-    state.aiTimer = window.setTimeout(playAiTurn, 440);
-  } else {
-    elements.aiMessage.textContent = getPhase() === "moving"
-      ? "Choose an X, then choose any empty square."
-      : "The first three X tokens are placed freely.";
-    const nextCell = cells.find((cell) => !cell.disabled);
-    if (nextCell) nextCell.focus();
-  }
-}
-
-function registerMovingPhaseIfNeeded() {
-  if (getPhase() !== "moving" || state.enteredMovingPhase) return;
-  state.enteredMovingPhase = true;
-  state.stats.movingRounds += 1;
-  state.achievements.firstMove = true;
-  persistProgress();
-  updateStatsUI();
-  updateAchievementUI();
-}
-
-function recordRepeatedPosition() {
-  if (getPhase() !== "moving") return false;
-  const turn = state.isPlayerTurn ? PLAYER_MARK : AI_MARK;
-  const key = serializeBoard(state.board) + "|" + turn;
-  const visits = (state.positionVisits.get(key) || 0) + 1;
-  state.positionVisits.set(key, visits);
-  return visits >= REPETITION_LIMIT;
-}
-
-function playAiTurn() {
-  state.aiTimer = null;
-  if (!state.gameActive || state.isPlayerTurn) return;
-  const action = chooseBestAiAction();
-  elements.thinking.hidden = true;
-  if (!action) {
-    finishGame({ type: "draw", reason: "no-moves" });
-    return;
-  }
-  applyActionToLiveState(action, AI_MARK);
-  audio.beep({
-    frequency: action.kind === "move" ? 295 : 320,
-    duration: 0.09, type: "sawtooth", volume: 0.035, slideTo: 260
-  });
-  state.aiMessageIndex = (state.aiMessageIndex + 1) % AI_LINES.length;
-  elements.aiMessage.textContent = AI_LINES[state.aiMessageIndex];
-  const winningMove = evaluateBoard(state.board);
-  if (winningMove) {
-    finishGame(winningMove);
-    return;
-  }
-  finishTurn(AI_MARK);
-}
-
-function applyActionToLiveState(action, mark) {
-  state.board = applyAction(state.board, action, mark);
-  if (action.kind === "place") state.placed[mark] += 1;
-  renderBoard(action);
-}
-
-function applyAction(board, action, mark) {
-  const next = board.slice();
-  if (action.kind === "move") next[action.from] = "";
-  next[action.to] = mark;
-  return next;
-}
-
-function finishGame(outcome) {
-  clearAiTimer();
-  state.gameActive = false;
-  state.isPlayerTurn = false;
-  state.selectedIndex = null;
-  elements.thinking.hidden = true;
-  elements.gameScreen.classList.add("is-complete");
-
-  if (outcome.type === "win") {
-    state.winningCombo = outcome.combo;
-    renderBoard();
-    renderWinningLine(outcome.combo);
-    audio.beep({
-      frequency: outcome.winner === PLAYER_MARK ? 680 : 190,
-      duration: 0.14, type: outcome.winner === PLAYER_MARK ? "triangle" : "square",
-      volume: 0.045, slideTo: outcome.winner === PLAYER_MARK ? 820 : 140
-    });
-  } else {
-    state.winningCombo = null;
-    elements.winningLine.classList.remove("is-visible");
-    audio.beep({ frequency: 430, duration: 0.11, type: "sine", volume: 0.035 });
-  }
-
-  updateProgressForResult(outcome);
-  showEndOverlay(outcome);
-}
-
-function updateProgressForResult(outcome) {
-  state.stats.gamesPlayed += 1;
-  if (outcome.type === "draw") state.stats.draws += 1;
-  else if (outcome.winner === PLAYER_MARK) state.stats.wins += 1;
-  else state.stats.losses += 1;
-
-  state.achievements.firstGame = true;
-  if (state.stats.draws >= 1) state.achievements.firstDraw = true;
-  if (state.stats.gamesPlayed >= 10) state.achievements.persistentChallenger = true;
-  if (state.stats.draws >= 5) state.achievements.masterSurvivor = true;
-  persistProgress();
-  updateStatsUI();
-  updateAchievementUI();
-}
-
-function showEndOverlay(outcome) {
-  if (outcome.type === "draw") {
-    elements.endTitle.textContent = outcome.reason === "repetition"
-      ? "The ink looped back on itself."
-      : "A perfectly balanced board.";
-    elements.endSubtitle.textContent = "Three identical moving positions make this round a draw.";
-    elements.exploreLink.hidden = true;
-  } else if (outcome.winner === PLAYER_MARK) {
-    elements.endTitle.textContent = "You found the line.";
-    elements.endSubtitle.textContent = "A clean three in a row beats every prediction.";
-    elements.exploreLink.hidden = true;
-  } else {
-    elements.endTitle.textContent = "The AI held the board.";
-    elements.endSubtitle.textContent = "Try a different route through the moving phase.";
-    elements.exploreLink.hidden = false;
-  }
-  elements.phaseLabel.textContent = "Round complete";
-  elements.turnText.textContent = outcome.type === "draw"
-    ? "No more moves in this round."
-    : (outcome.winner === AI_MARK ? "AI wins this round." : "You win this round.");
-  elements.endOverlay.classList.add("is-visible");
-  elements.endOverlay.hidden = false;
-}
-
-function chooseBestAiAction() {
-  const root = {
-    board: state.board.slice(),
-    placed: Object.assign({}, state.placed),
-    turn: AI_MARK
-  };
-  const actions = orderActions(getLegalActions(root.board, root.placed, AI_MARK));
-  if (!actions.length) return null;
-
-  let bestValue = -Infinity;
-  let bestAction = actions[0];
-  for (const action of actions) {
-    const next = makeSearchState(root, action, AI_MARK, PLAYER_MARK);
-    const value = solveGameState(next);
-    if (value > bestValue) {
-      bestValue = value;
-      bestAction = action;
-    }
-  }
-  return bestAction;
-}
-
-function solveGameState(node) {
-  const outcome = evaluateBoard(node.board);
-  if (outcome) return outcome.winner === AI_MARK ? 1 : -1;
-  if (getPhase(node.placed) === "moving") {
-    return getMovingStateValue(node.board, node.turn);
-  }
-
-  const memoKey = serializeBoard(node.board) + "|" + node.placed.X + node.placed.O + "|" + node.turn;
-  if (placementSolverMemo.has(memoKey)) return placementSolverMemo.get(memoKey);
-  const actions = orderActions(getLegalActions(node.board, node.placed, node.turn));
-  let value = node.turn === AI_MARK ? -1 : 1;
-  for (const action of actions) {
-    const nextTurn = node.turn === AI_MARK ? PLAYER_MARK : AI_MARK;
-    const next = makeSearchState(node, action, node.turn, nextTurn);
-    const score = solveGameState(next);
-    if (node.turn === AI_MARK) {
-      value = Math.max(value, score);
-    } else {
-      value = Math.min(value, score);
-    }
-    if (value === (node.turn === AI_MARK ? 1 : -1)) break;
-  }
-  placementSolverMemo.set(memoKey, value);
-  return value;
-}
-
-function getMovingStateValue(board, turn) {
-  if (!movementSolverTable) {
-    movementSolverTable = buildMovementSolverTable();
-  }
-  const entry = movementSolverTable.get(createMovementKey(board, turn));
-  return entry ? entry.value : 0;
-}
-
-function buildMovementSolverTable() {
-  const nodes = new Map();
-  const predecessors = new Map();
-  const squares = Array.from({ length: 9 }, (_, index) => index);
-
-  forEachCombination(squares, 3, (xSquares) => {
-    const remaining = squares.filter((square) => !xSquares.includes(square));
-    forEachCombination(remaining, 3, (oSquares) => {
-      const board = Array(9).fill("");
-      xSquares.forEach((square) => { board[square] = PLAYER_MARK; });
-      oSquares.forEach((square) => { board[square] = AI_MARK; });
-
-      [PLAYER_MARK, AI_MARK].forEach((turn) => {
-        const key = createMovementKey(board, turn);
-        nodes.set(key, {
-          key,
-          board,
-          turn,
-          value: null,
-          remaining: 0
-        });
+  function createDots() {
+    dots = [];
+    const count = Math.floor((w * h) / 18000);
+    for (let i = 0; i < count; i++) {
+      dots.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: 0.5 + Math.random() * 1.5,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: (Math.random() - 0.5) * 0.15,
+        alpha: 0.05 + Math.random() * 0.15,
       });
-    });
-  });
+    }
+  }
 
-  const queue = [];
-  nodes.forEach((node) => {
-    const outcome = evaluateBoard(node.board);
-    if (outcome) {
-      node.value = outcome.winner === AI_MARK ? 1 : -1;
-      queue.push(node.key);
-      return;
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+
+    const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const color = isDark ? "200,196,188" : "26,26,26";
+
+    for (const d of dots) {
+      d.x += d.vx;
+      d.y += d.vy;
+      if (d.x < -10) d.x = w + 10;
+      if (d.x > w + 10) d.x = -10;
+      if (d.y < -10) d.y = h + 10;
+      if (d.y > h + 10) d.y = -10;
+
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${color},${d.alpha})`;
+      ctx.fill();
     }
 
-    const actions = getLegalActions(node.board, { X: 3, O: 3 }, node.turn);
-    node.remaining = actions.length;
-    actions.forEach((action) => {
-      const nextBoard = applyAction(node.board, action, node.turn);
-      const nextTurn = node.turn === AI_MARK ? PLAYER_MARK : AI_MARK;
-      const nextKey = createMovementKey(nextBoard, nextTurn);
-      const list = predecessors.get(nextKey) || [];
-      list.push(node.key);
-      predecessors.set(nextKey, list);
-    });
-  });
-
-  while (queue.length) {
-    const child = nodes.get(queue.shift());
-    const previousKeys = predecessors.get(child.key) || [];
-    previousKeys.forEach((previousKey) => {
-      const previous = nodes.get(previousKey);
-      if (previous.value !== null) return;
-
-      const wantedValue = previous.turn === AI_MARK ? 1 : -1;
-      if (child.value === wantedValue) {
-        previous.value = wantedValue;
-        queue.push(previous.key);
-      } else if (child.value === -wantedValue) {
-        previous.remaining -= 1;
-        if (previous.remaining === 0) {
-          previous.value = -wantedValue;
-          queue.push(previous.key);
+    // Subtle connecting lines between close dots
+    for (let i = 0; i < dots.length; i++) {
+      for (let j = i + 1; j < dots.length; j++) {
+        const dx = dots[i].x - dots[j].x;
+        const dy = dots[i].y - dots[j].y;
+        const dist = dx * dx + dy * dy;
+        if (dist < 6400) { // 80px
+          const alpha = (1 - dist / 6400) * 0.06;
+          ctx.beginPath();
+          ctx.moveTo(dots[i].x, dots[i].y);
+          ctx.lineTo(dots[j].x, dots[j].y);
+          ctx.strokeStyle = `rgba(${color},${alpha})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
         }
       }
-    });
+    }
+
+    animId = requestAnimationFrame(draw);
   }
 
-  nodes.forEach((node) => {
-    if (node.value === null) node.value = 0;
+  resize();
+  createDots();
+  draw();
+
+  window.addEventListener("resize", () => { resize(); createDots(); });
+
+  // Stop canvas when leaving discovery phase
+  return () => { cancelAnimationFrame(animId); };
+}
+
+
+/* ── AMBIENT PARTICLES (game phase) ─────────────── */
+
+function createAmbientParticles() {
+  const count = 18;
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement("span");
+    dot.className = "ambient-dot";
+    const size = 1 + Math.random() * 2.5;
+    dot.style.cssText = `
+      left: ${Math.random() * 100}%;
+      bottom: -10px;
+      width: ${size}px;
+      height: ${size}px;
+      --dur: ${10 + Math.random() * 14}s;
+      --delay: ${Math.random() * 10}s;
+    `;
+    dom.ambientLayer.appendChild(dot);
+  }
+}
+
+
+/* ── PHASE TRANSITIONS ──────────────────────────── */
+
+let stopCanvas = null;
+
+function showPhase(phaseEl) {
+  document.querySelectorAll(".phase").forEach(p => {
+    p.classList.remove("is-active");
+    p.setAttribute("aria-hidden", "true");
   });
-  return nodes;
+
+  // Small delay so outgoing transition starts before incoming
+  setTimeout(() => {
+    phaseEl.classList.add("is-active");
+    phaseEl.setAttribute("aria-hidden", "false");
+  }, 80);
 }
 
-function createMovementKey(board, turn) {
-  return serializeBoard(board) + "|" + turn;
+
+/* ── DISCOVERY SEQUENCE ─────────────────────────── */
+
+function runDiscoverySequence() {
+  const line1 = $("discoveryLine1");
+  const line2 = $("discoveryLine2");
+  const enterBtn = dom.enterBtn;
+
+  // Staggered reveal
+  setTimeout(() => line1.classList.add("is-revealed"), 400);
+  setTimeout(() => line2.classList.add("is-revealed"), 1400);
+  setTimeout(() => {
+    enterBtn.classList.add("is-revealed");
+    enterBtn.style.opacity = "1";
+    enterBtn.style.transform = "translateY(0)";
+  }, 2400);
 }
 
-function serializeBoard(board) {
-  return board.map((mark) => mark || ".").join("");
+
+/* ── GAME FLOW ──────────────────────────────────── */
+
+function startNewRound() {
+  if (state.aiTimer) clearTimeout(state.aiTimer);
+
+  state.board = Array(9).fill("");
+  state.isPlayerTurn = true;
+  state.gameActive = true;
+  state.moveCount = 0;
+  state.winCombo = null;
+  state.selectedIdx = null;
+
+  dom.endOverlay.hidden = true;
+  dom.endOverlay.classList.remove("is-visible");
+  dom.exploreLink.hidden = true;
+  dom.aiTaunt.textContent = pickRandom(TAUNTS.opening);
+  dom.turnText.textContent = "Your move";
+  dom.thinkingBar.hidden = true;
+  dom.thinkingBar.classList.remove("is-visible");
+  dom.winLine.classList.remove("is-drawn");
+  dom.winStroke.removeAttribute("style");
+
+  cells.forEach((c, i) => {
+    c.disabled = false;
+    c.innerHTML = "";
+    c.className = "cell";
+    c.setAttribute("aria-label", `Cell ${i + 1}, empty`);
+  });
 }
 
-function forEachCombination(items, count, callback) {
-  const visit = (start, chosen) => {
-    if (chosen.length === count) {
-      callback(chosen);
+function clearSelectionUI() {
+  cells.forEach(c => c.classList.remove("is-selected"));
+}
+
+function selectCell(idx) {
+  clearSelectionUI();
+  state.selectedIdx = idx;
+  cells[idx].classList.add("is-selected");
+}
+
+function movePiece(fromIdx, toIdx, mark) {
+  state.board[fromIdx] = "";
+  cells[fromIdx].className = "cell";
+  cells[fromIdx].innerHTML = "";
+  cells[fromIdx].setAttribute("aria-label", `Cell ${fromIdx + 1}, empty`);
+  placeMove(toIdx, mark);
+}
+
+function onCellClick(e) {
+  const cell = e.currentTarget;
+  const idx = Number(cell.dataset.index);
+
+  if (!state.gameActive || !state.isPlayerTurn) return;
+
+  const pPieces = state.board.filter(m => m === PLAYER).length;
+
+  if (pPieces < 3) {
+    if (state.board[idx]) return;
+    placeMove(idx, PLAYER);
+    audio.placeX();
+    spawnRipple(cell, e);
+    finalizePlayerTurn();
+  } else {
+    if (state.board[idx] === PLAYER) {
+      selectCell(idx);
+      audio.click();
       return;
     }
-    for (let index = start; index <= items.length - (count - chosen.length); index += 1) {
-      visit(index + 1, chosen.concat(items[index]));
+
+    if (state.selectedIdx !== null && !state.board[idx]) {
+      movePiece(state.selectedIdx, idx, PLAYER);
+      audio.placeX();
+      spawnRipple(cell, e);
+      state.selectedIdx = null;
+      clearSelectionUI();
+      finalizePlayerTurn();
     }
-  };
-  visit(0, []);
-}
-
-function makeSearchState(node, action, mark, nextTurn) {
-  const placed = Object.assign({}, node.placed);
-  if (action.kind === "place") placed[mark] += 1;
-  return { board: applyAction(node.board, action, mark), placed, turn: nextTurn };
-}
-
-function getLegalActions(board, placed, mark) {
-  const empty = board.map((value, index) => value ? null : index).filter((index) => index !== null);
-  if (placed[mark] < TOKENS_PER_PLAYER) {
-    return empty.map((to) => ({ kind: "place", to }));
   }
-  const owned = board.map((value, index) => value === mark ? index : null).filter((index) => index !== null);
-  return owned.flatMap((from) => empty.map((to) => ({ kind: "move", from, to })));
 }
 
-function orderActions(actions) {
-  const weights = [3, 1, 3, 1, 5, 1, 3, 1, 3];
-  return actions.slice().sort((first, second) => weights[second.to] - weights[first.to]);
+function finalizePlayerTurn() {
+  state.moveCount++;
+  const result = checkBoard(state.board);
+  if (result) { endGame(result); return; }
+
+  state.isPlayerTurn = false;
+  lockBoard(true);
+  dom.turnText.textContent = "AI is thinking";
+  dom.thinkingBar.hidden = false;
+  dom.thinkingBar.classList.add("is-visible");
+
+  const delay = 350 + Math.random() * 300;
+  state.aiTimer = setTimeout(() => {
+    if (!state.gameActive) return;
+    aiTurn();
+  }, delay);
 }
 
-function evaluateBoard(board) {
-  for (const combo of WIN_COMBINATIONS) {
-    const first = combo[0];
-    const second = combo[1];
-    const third = combo[2];
-    const mark = board[first];
-    if (mark && mark === board[second] && mark === board[third]) {
-      return { type: "win", winner: mark, combo };
+function aiTurn() {
+  state.aiTimer = null;
+  dom.thinkingBar.classList.remove("is-visible");
+  setTimeout(() => { dom.thinkingBar.hidden = true; }, 200);
+
+  const move = bestMove(state.board.slice());
+  if (move.from !== null) {
+    movePiece(move.from, move.to, AI);
+  } else {
+    placeMove(move.to, AI);
+  }
+  
+  audio.placeO();
+  state.moveCount++;
+
+  dom.aiTaunt.textContent = pickRandom(TAUNTS.midgame);
+
+  const result = checkBoard(state.board);
+  if (result) { endGame(result); return; }
+
+  state.isPlayerTurn = true;
+  const pPieces = state.board.filter(m => m === PLAYER).length;
+  dom.turnText.textContent = pPieces < 3 ? "Your move" : "Move a mark";
+  lockBoard(false);
+}
+
+function placeMove(idx, mark) {
+  state.board[idx] = mark;
+  const cell = cells[idx];
+  cell.classList.add(mark === PLAYER ? "mark-x" : "mark-o");
+  cell.disabled = true;
+  cell.setAttribute("aria-label", `Cell ${idx + 1}, ${mark}`);
+
+  // Create animated mark element
+  const markEl = document.createElement("div");
+  markEl.className = `cell__mark cell__mark--${mark.toLowerCase()}`;
+  cell.appendChild(markEl);
+}
+
+function spawnRipple(cell, e) {
+  const rect = cell.getBoundingClientRect();
+  const ripple = document.createElement("span");
+  ripple.className = "cell-ripple";
+  const size = Math.max(rect.width, rect.height);
+  ripple.style.width = ripple.style.height = size + "px";
+  ripple.style.left = (e.clientX - rect.left - size / 2) + "px";
+  ripple.style.top  = (e.clientY - rect.top  - size / 2) + "px";
+  cell.appendChild(ripple);
+  ripple.addEventListener("animationend", () => ripple.remove());
+}
+
+function lockBoard(locked) {
+  const pPieces = state.board.filter(m => m === PLAYER).length;
+  cells.forEach((c, i) => {
+    if (!state.gameActive) {
+      c.disabled = true;
+    } else if (locked) {
+      c.disabled = true;
+    } else if (pPieces < 3) {
+      c.disabled = Boolean(state.board[i]);
+    } else {
+      c.disabled = state.board[i] === AI;
     }
+  });
+}
+
+
+/* ── BOARD EVALUATION ───────────────────────────── */
+
+function checkBoard(b) {
+  for (const combo of WIN_LINES) {
+    const [a, c_, e] = combo;
+    const m = b[a];
+    if (m && m === b[c_] && m === b[e]) {
+      return { type: "win", winner: m, combo };
+    }
+  }
+  if (state.moveCount >= 40) return { type: "draw", winner: null, combo: null };
+  if (b.every(Boolean)) return { type: "draw", winner: null, combo: null };
+  return null;
+}
+
+
+/* ── MINIMAX AI (with alpha-beta pruning) ───────── */
+
+function bestMove(b) {
+  let best = -Infinity;
+  const candidates = [];
+  const moves = getAvailableMoves(b, AI);
+
+  for (const m of moves) {
+    if (m.from !== null) b[m.from] = "";
+    b[m.to] = AI;
+    const score = minimax(b, 0, false, -Infinity, Infinity);
+    if (m.from !== null) b[m.from] = AI;
+    b[m.to] = "";
+    
+    if (score > best)  { best = score; candidates.length = 0; }
+    if (score >= best) candidates.push(m);
+  }
+
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+function minimax(b, depth, isMax, alpha, beta) {
+  const res = evalBoard(b);
+  if (res !== null) return res === AI ? 10 - depth : res === PLAYER ? depth - 10 : 0;
+  
+  if (depth > 7) return 0;
+
+  if (isMax) {
+    let v = -Infinity;
+    for (const m of getAvailableMoves(b, AI)) {
+      if (m.from !== null) b[m.from] = "";
+      b[m.to] = AI;
+      v = Math.max(v, minimax(b, depth + 1, false, alpha, beta));
+      if (m.from !== null) b[m.from] = AI;
+      b[m.to] = "";
+      alpha = Math.max(alpha, v);
+      if (beta <= alpha) break;
+    }
+    return v;
+  }
+
+  let v = Infinity;
+  for (const m of getAvailableMoves(b, PLAYER)) {
+    if (m.from !== null) b[m.from] = "";
+    b[m.to] = PLAYER;
+    v = Math.min(v, minimax(b, depth + 1, true, alpha, beta));
+    if (m.from !== null) b[m.from] = PLAYER;
+    b[m.to] = "";
+    beta = Math.min(beta, v);
+    if (beta <= alpha) break;
+  }
+  return v;
+}
+
+function evalBoard(b) {
+  for (const [a, c_, e] of WIN_LINES) {
+    const m = b[a];
+    if (m && m === b[c_] && m === b[e]) return m;
   }
   return null;
 }
 
-function renderWinningLine(combo) {
-  const boardRect = elements.board.getBoundingClientRect();
-  if (!boardRect.width || !boardRect.height) return;
-  const boardOffsetX = elements.board.offsetLeft;
-  const boardOffsetY = elements.board.offsetTop;
+function getAvailableMoves(b, mark) {
+  const moves = [];
+  const pieces = [];
+  const empty = [];
+  for (let i = 0; i < 9; i++) {
+    if (b[i] === mark) pieces.push(i);
+    else if (!b[i]) empty.push(i);
+  }
+  
+  if (pieces.length < 3) {
+    for (const to of empty) moves.push({ from: null, to });
+  } else {
+    for (const from of pieces) {
+      for (const to of empty) {
+        moves.push({ from, to });
+      }
+    }
+  }
+  return moves;
+}
+
+
+/* ── END GAME ───────────────────────────────────── */
+
+function endGame(result) {
+  state.gameActive = false;
+  state.isPlayerTurn = false;
+  lockBoard(true);
+  dom.thinkingBar.hidden = true;
+  dom.thinkingBar.classList.remove("is-visible");
+
+  // Draw winning line
+  if (result.combo) {
+    state.winCombo = result.combo;
+    drawWinLine(result.combo);
+  }
+
+  let kind;
+  if (result.type === "win" && result.winner === AI) {
+    kind = "loss";
+    dom.turnText.textContent = "AI wins";
+    dom.aiTaunt.textContent = pickRandom(TAUNTS.aiWin);
+    audio.lose();
+  } else if (result.type === "draw") {
+    kind = "draw";
+    dom.turnText.textContent = "Draw";
+    dom.aiTaunt.textContent = pickRandom(TAUNTS.draw);
+    audio.draw();
+  } else {
+    kind = "win";
+    dom.turnText.textContent = "You won?!";
+    dom.aiTaunt.textContent = "Impossible. The ink smudged.";
+    audio.win();
+  }
+
+  updateStats(kind);
+  updateMilestones();
+  renderStats();
+  renderMilestones();
+  persistState();
+
+  // Show overlay after a moment
+  setTimeout(() => showEndOverlay(kind), 800);
+}
+
+function drawWinLine(combo) {
+  const boardRect = dom.board.getBoundingClientRect();
+  const frameRect = dom.board.parentElement.getBoundingClientRect();
+  if (!boardRect.width) return;
+
   const cellSize = boardRect.width / 3;
-  const start = combo[0];
-  const end = combo[2];
-  const startX = (start % 3 + 0.5) * cellSize;
-  const startY = (Math.floor(start / 3) + 0.5) * cellSize;
-  const endX = (end % 3 + 0.5) * cellSize;
-  const endY = (Math.floor(end / 3) + 0.5) * cellSize;
-  const length = Math.hypot(endX - startX, endY - startY);
-  const angle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
-  elements.winningLine.style.width = String(length) + "px";
-  elements.winningLine.style.transform = "translate(" + (boardOffsetX + startX) + "px, " + (boardOffsetY + startY) + "px) rotate(" + angle + "deg)";
-  elements.winningLine.classList.add("is-visible");
+  const ox = boardRect.left - frameRect.left;
+  const oy = boardRect.top  - frameRect.top;
+
+  const [s, , e] = combo;
+  const x1 = ox + (s % 3 + 0.5) * cellSize;
+  const y1 = oy + (Math.floor(s / 3) + 0.5) * cellSize;
+  const x2 = ox + (e % 3 + 0.5) * cellSize;
+  const y2 = oy + (Math.floor(e / 3) + 0.5) * cellSize;
+
+  const line = dom.winStroke;
+  line.setAttribute("x1", x1);
+  line.setAttribute("y1", y1);
+  line.setAttribute("x2", x2);
+  line.setAttribute("y2", y2);
+
+  // Calculate and set dasharray to actual length
+  const len = Math.hypot(x2 - x1, y2 - y1);
+  line.style.strokeDasharray = len;
+  line.style.strokeDashoffset = len;
+
+  // Force reflow then animate
+  void line.getBoundingClientRect();
+  dom.winLine.classList.add("is-drawn");
+  line.style.strokeDashoffset = "0";
 }
 
-function createBoardCells() {
-  return Array.from({ length: 9 }, (_, index) => {
-    const cell = document.createElement("button");
-    cell.type = "button";
-    cell.className = "cell";
-    cell.dataset.index = String(index);
-    cell.setAttribute("role", "gridcell");
-    cell.setAttribute("aria-label", "Cell " + (index + 1) + ", empty");
-    cell.addEventListener("click", handleCellSelect);
-    elements.board.appendChild(cell);
-    return cell;
-  });
+function showEndOverlay(kind) {
+  const icons  = { loss: "✕", draw: "═", win: "✦" };
+  const titles = {
+    loss: "You couldn't beat my AI.",
+    draw: "You survived.",
+    win:  "Impossible outcome.",
+  };
+  const subtitles = {
+    loss: "Maybe you'll be more impressed by the AI I actually build.",
+    draw: "Very few visitors leave a mark on this page. Respect.",
+    win:  "If this happened, the ink smudged somewhere.",
+  };
+
+  dom.endIcon.textContent = icons[kind];
+  dom.endTitle.textContent = titles[kind];
+  dom.endSubtitle.textContent = subtitles[kind];
+  dom.exploreLink.hidden = kind !== "loss";
+
+  dom.endOverlay.hidden = false;
+  // Force reflow
+  void dom.endOverlay.offsetHeight;
+  dom.endOverlay.classList.add("is-visible");
 }
 
-function createParticles() {
-  for (let index = 0; index < 12; index += 1) {
-    const particle = document.createElement("span");
-    particle.className = "particle";
-    particle.style.setProperty("--x", String(Math.random() * 100) + "%");
-    particle.style.setProperty("--size", String(1 + Math.random() * 3) + "px");
-    particle.style.setProperty("--duration", String(8 + Math.random() * 8) + "s");
-    particle.style.setProperty("--delay", String(Math.random() * 6) + "s");
-    particle.style.setProperty("--drift", String(-20 + Math.random() * 40) + "px");
-    elements.particleLayer.appendChild(particle);
+
+/* ── STATS & MILESTONES ─────────────────────────── */
+
+function updateStats(kind) {
+  state.stats.games++;
+  if (kind === "win")  state.stats.wins++;
+  if (kind === "draw") {
+    state.stats.draws++;
+    state.stats.currentStreak++;
+    state.stats.bestStreak = Math.max(state.stats.bestStreak, state.stats.currentStreak);
+  }
+  if (kind === "loss") {
+    state.stats.losses++;
+    state.stats.currentStreak = 0;
   }
 }
 
-function updateStatsUI() {
-  elements.statGames.textContent = String(state.stats.gamesPlayed);
-  elements.statWins.textContent = String(state.stats.wins);
-  elements.statDraws.textContent = String(state.stats.draws);
-  elements.statLosses.textContent = String(state.stats.losses);
-  elements.statMovingRounds.textContent = String(state.stats.movingRounds);
+function updateMilestones() {
+  const s = state.stats;
+  const m = state.milestones;
+  const prev = { ...m };
+
+  if (s.games >= 1)  m.first     = true;
+  if (s.draws >= 1)  m.draw      = true;
+  if (s.games >= 10) m.tenacious = true;
+  if (s.draws >= 5)  m.master    = true;
+
+  // Detect new unlocks for animation
+  state._newUnlocks = [];
+  for (const key of Object.keys(m)) {
+    if (m[key] && !prev[key]) state._newUnlocks.push(key);
+  }
 }
 
-function updateAchievementUI() {
-  elements.achFirstGame.classList.toggle("unlocked", state.achievements.firstGame);
-  elements.achFirstDraw.classList.toggle("unlocked", state.achievements.firstDraw);
-  elements.achPersistentChallenger.classList.toggle("unlocked", state.achievements.persistentChallenger);
-  elements.achMasterSurvivor.classList.toggle("unlocked", state.achievements.masterSurvivor);
-  elements.achFirstMove.classList.toggle("unlocked", state.achievements.firstMove);
+function renderStats() {
+  const s = state.stats;
+  bumpValue(dom.scoreWins,   s.wins);
+  bumpValue(dom.scoreDraws,  s.draws);
+  bumpValue(dom.scoreLosses, s.losses);
+  dom.statGames.textContent  = s.games;
+  dom.statStreak.textContent = s.bestStreak;
 }
+
+function bumpValue(el, value) {
+  el.textContent = value;
+  el.classList.remove("bumped");
+  void el.offsetWidth;
+  el.classList.add("bumped");
+}
+
+function renderMilestones() {
+  const map = {
+    first:     dom.msFirst,
+    draw:      dom.msDraw,
+    tenacious: dom.msTenacious,
+    master:    dom.msMaster,
+  };
+
+  for (const [key, el] of Object.entries(map)) {
+    if (state.milestones[key]) {
+      el.classList.add("unlocked");
+      if (state._newUnlocks?.includes(key)) {
+        el.classList.add("just-unlocked");
+        audio.unlock();
+        el.addEventListener("animationend", () => el.classList.remove("just-unlocked"), { once: true });
+      }
+    }
+  }
+}
+
+
+/* ── MUTE TOGGLE ────────────────────────────────── */
 
 function updateMuteUI() {
-  elements.muteToggle.setAttribute("aria-pressed", String(state.muted));
-  elements.muteToggle.textContent = state.muted ? "Sound Off" : "Sound On";
+  const muted = state.muted;
+  dom.muteToggle.setAttribute("aria-pressed", String(muted));
+  dom.soundOnIcon.style.display  = muted ? "none" : "block";
+  dom.soundOffIcon.style.display = muted ? "block" : "none";
 }
 
-function persistProgress() {
-  sessionStorage.setItem(STORAGE_KEYS.stats, JSON.stringify(state.stats));
-  sessionStorage.setItem(STORAGE_KEYS.achievements, JSON.stringify(state.achievements));
-}
 
-function clearAiTimer() {
-  if (!state.aiTimer) return;
-  window.clearTimeout(state.aiTimer);
-  state.aiTimer = null;
-}
+/* ── PERSISTENCE ────────────────────────────────── */
 
-function loadFromSession(key, fallback) {
+function loadState() {
   try {
-    const raw = sessionStorage.getItem(key);
-    return raw ? Object.assign({}, fallback, JSON.parse(raw)) : Object.assign({}, fallback);
-  } catch {
-    return Object.assign({}, fallback);
-  }
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (saved.stats)      Object.assign(state.stats, saved.stats);
+    if (saved.milestones) Object.assign(state.milestones, saved.milestones);
+    if (saved.muted != null) state.muted = saved.muted;
+  } catch { /* ignore */ }
 }
+
+function persistState() {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      stats: state.stats,
+      milestones: state.milestones,
+      muted: state.muted,
+    }));
+  } catch { /* ignore */ }
+}
+
+
+/* ── HELPERS ────────────────────────────────────── */
+
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+
+/* ── INITIALIZATION ─────────────────────────────── */
+
+(function init() {
+  loadState();
+  createBoard();
+  createAmbientParticles();
+  renderStats();
+  renderMilestones();
+  updateMuteUI();
+
+  // Start discovery sequence
+  stopCanvas = initInkCanvas();
+  runDiscoverySequence();
+
+  // ── Event: Enter button ──
+  dom.enterBtn.addEventListener("click", () => {
+    audio.init();
+    audio.enter();
+    if (stopCanvas) { stopCanvas(); stopCanvas = null; }
+    showPhase(dom.phaseChallenge);
+  });
+
+  // ── Event: Begin button ──
+  dom.beginBtn.addEventListener("click", () => {
+    audio.init();
+    audio.click();
+    showPhase(dom.phaseGame);
+    setTimeout(() => {
+      dom.gameStage.classList.add("is-revealed");
+      startNewRound();
+    }, 400);
+  });
+
+  // ── Event: Play again ──
+  dom.playAgainBtn.addEventListener("click", () => {
+    audio.click();
+    startNewRound();
+  });
+
+  // ── Event: Mute toggle ──
+  dom.muteToggle.addEventListener("click", () => {
+    audio.init();
+    state.muted = !state.muted;
+    updateMuteUI();
+    persistState();
+    if (!state.muted) audio.click();
+  });
+
+  // ── Event: Resize — redraw win line ──
+  window.addEventListener("resize", () => {
+    if (state.winCombo) drawWinLine(state.winCombo);
+  });
+})();
