@@ -1,4 +1,3 @@
-bindEvents();
 import { AI_TOTAL_GAME_TREES, chooseOptimalMove } from "./ai.js";
 import { animateBootScreen, animateBoardReveal, attachButtonRipple, createParticleField, createAmbientMotion, highlightWinningLine, sleep, updateResultAccent } from "./animation.js";
 import { createSoundEngine } from "./sound.js";
