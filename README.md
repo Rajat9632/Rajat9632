@@ -1,136 +1,123 @@
-<!--
-  Ink & Code — GitHub profile README for Rajat9632
-  Sketch portrait rendered in code. Keep the monochrome energy.
--->
-
 <div align="center">
 
+<img src="assets/rajat-sketch.jpeg" width="180" style="border-radius: 50%;" alt="Rajat" />
 
-<h1>Rajat</h1>
+# Hey, I'm Rajat 👋
 
-<p><strong>ink &amp; code</strong></p>
+**`ink & code`** — sketching ideas into working software
 
 <a href="https://git.io/typing-svg">
-  <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=17&duration=3800&pause=1200&color=57606A&center=true&vCenter=true&width=680&height=34&lines=sketching+ideas+into+working+software;building+with+AI+%C2%B7+Python+%C2%B7+full-stack;curious+maker.+ink+%26+code.#gh-light-mode-only" alt="typing tagline" />
-  <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=17&duration=3800&pause=1200&color=ADBAC7&center=true&vCenter=true&width=680&height=34&lines=sketching+ideas+into+working+software;building+with+AI+%C2%B7+Python+%C2%B7+full-stack;curious+maker.+ink+%26+code.#gh-dark-mode-only" alt="typing tagline" />
+  <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=16&duration=3500&pause=1200&color=8B949E&center=true&vCenter=true&multiline=true&repeat=true&width=500&height=28&lines=building+with+AI+%C2%B7+Python+%C2%B7+Full-stack;shipping+products%2C+not+just+code;curious+maker+%E2%80%A2+open+to+collabs" alt="Typing SVG" />
 </a>
 
 <br/>
 
-<img src="assets/ink-divider.svg" width="420" alt="" />
+[![GitHub](https://img.shields.io/badge/Rajat9632-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Rajat9632)
+[![Portfolio](https://img.shields.io/badge/Ink_Arcade-Play_Now-FF6B6B?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwb2x5Z29uIHBvaW50cz0iNSAzIDIxIDEyIDUgMjEiPjwvcG9seWdvbj48L3N2Zz4=&logoColor=white)](https://rajat9632.github.io/Rajat9632/arcade/index.html)
 
-<p>
-  <em>Not another generic developer card — a builder who turns rough ideas into real products.</em>
-</p>
+</div>
 
-<p>
-  <a href="https://github.com/Rajat9632"><img src="https://img.shields.io/badge/GitHub-Rajat9632-1F2328?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
-  &nbsp;
-  <a href="mailto:YOUR_EMAIL_HERE"><img src="https://img.shields.io/badge/say_hello-ink_%26_code-57606A?style=flat-square" alt="Email" /></a>
-</p>
+---
+
+<br/>
+
+## ⚡ Tech Stack
+
+<div align="center">
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
+![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
+![VS Code](https://img.shields.io/badge/VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
 
 </div>
 
 <br/>
 
-## ✎ on the desk
-
-Things I'm actively shaping — fewer projects, more craft.
+## 🔥 What I'm Building
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3><a href="https://github.com/Rajat9632/FitYou---Fit_Ai">FitAi</a></h3>
-      AI-driven workouts and diets that adapt to the person, not a template.
-      <br/><code>Python · AI</code>
+      <h3>🏋️ <a href="https://github.com/Rajat9632/FitYou---Fit_Ai">FitAi</a></h3>
+      <p>AI-driven workouts and diets that adapt to the person, not a template.</p>
+      <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" />
+      <img src="https://img.shields.io/badge/AI-FF6F61?style=flat-square" />
     </td>
     <td width="50%" valign="top">
-      <h3><a href="https://github.com/Rajat9632/krishi">krishi</a></h3>
-      Agri-tech experiments where software meets soil, season, and real farmers.
-      <br/><code>in progress</code>
+      <h3>🌾 <a href="https://github.com/Rajat9632/krishi">krishi</a></h3>
+      <p>Agri-tech experiments — software meets soil, season, and real farmers.</p>
+      <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" />
+      <img src="https://img.shields.io/badge/In_Progress-FFA500?style=flat-square" />
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3><a href="https://github.com/Rajat9632/ArtConnect">ArtConnect</a></h3>
-      A creative space for artists to share work and find each other.
-      <br/><code>JavaScript</code>
+      <h3>🎨 <a href="https://github.com/Rajat9632/ArtConnect">ArtConnect</a></h3>
+      <p>A creative space for artists to share work and find each other.</p>
+      <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=flat-square&logo=javascript&logoColor=black" />
     </td>
     <td width="50%" valign="top">
-      <h3><a href="https://github.com/Rajat9632/Ai-Agent-course">AI Agents</a></h3>
-      Learning (and shipping) agentic systems that actually do useful work.
-      <br/><code>AI · Agents</code>
+      <h3>🤖 <a href="https://github.com/Rajat9632/Ai-Agent-course">AI Agents</a></h3>
+      <p>Learning and shipping agentic systems that actually do useful work.</p>
+      <img src="https://img.shields.io/badge/AI-FF6F61?style=flat-square" />
+      <img src="https://img.shields.io/badge/Agents-8B5CF6?style=flat-square" />
     </td>
   </tr>
 </table>
 
 <br/>
 
-## ✎ in the toolkit
+## 📊 GitHub Stats
 
 <div align="center">
 
-  `Python` &nbsp;·&nbsp; `JavaScript` &nbsp;·&nbsp; `TypeScript` &nbsp;·&nbsp; `HTML/CSS`  
-  `AI / Agents` &nbsp;·&nbsp; `Full-stack` &nbsp;·&nbsp; `DevOps` &nbsp;·&nbsp; `Product thinking`
+<img height="180" src="https://github-readme-stats.vercel.app/api?username=Rajat9632&show_icons=true&include_all_commits=true&count_private=true&theme=tokyonight&hide_border=true&bg_color=0D1117&ring_color=58A6FF" alt="Rajat's GitHub stats" />
+&nbsp;&nbsp;
+<img height="180" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Rajat9632&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" alt="Top languages" />
+
+<br/><br/>
+
+<img src="https://streak-stats.demolab.com?user=Rajat9632&theme=tokyonight&hide_border=true&background=0D1117" alt="GitHub streak" />
+
+<br/><br/>
+
+<img src="https://github-readme-activity-graph.vercel.app/graph?username=Rajat9632&theme=tokyo-night&hide_border=true&bg_color=0D1117&color=58A6FF&line=58A6FF&point=FFFFFF&area=true&area_color=1F6FEB" alt="Activity Graph" />
 
 </div>
 
 <br/>
 
-## ✎ ink trail
+## 🎮 Ink Arcade
 
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github-readme-stats.vercel.app/api?username=Rajat9632&show_icons=true&include_all_commits=true&count_private=true&hide_border=true&bg_color=0D1117&title_color=E6EDF3&text_color=ADBAC7&icon_color=C9D1D9&ring_color=8B949E" />
-    <img height="165" src="https://github-readme-stats.vercel.app/api?username=Rajat9632&show_icons=true&include_all_commits=true&count_private=true&hide_border=true&bg_color=FFFFFF&title_color=1F2328&text_color=57606A&icon_color=24292F&ring_color=6E7781" alt="Rajat's GitHub stats" />
-  </picture>
-  &nbsp;
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github-readme-stats.vercel.app/api/top-langs/?username=Rajat9632&layout=compact&hide_border=true&bg_color=0D1117&title_color=E6EDF3&text_color=ADBAC7" />
-    <img height="165" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Rajat9632&layout=compact&hide_border=true&bg_color=FFFFFF&title_color=1F2328&text_color=57606A" alt="Top languages" />
-  </picture>
+
+> A hidden game tucked into this profile — **tic-tac-toe against an AI that never loses.**
+> Each player places 3 marks, then must **move** their pieces. Can you force a draw?
+
+<br/>
+
+[![Play Now](https://img.shields.io/badge/🎮_Play_Ink_Arcade-Challenge_the_Creator-FF6B6B?style=for-the-badge)](https://rajat9632.github.io/Rajat9632/arcade/index.html)
+
+<sub>Perfect AI · 3-mark movement variant · draw or lose (probably lose)</sub>
+
 </div>
 
 <br/>
 
-<div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://streak-stats.demolab.com?user=Rajat9632&hide_border=true&background=0D1117&stroke=30363D&ring=8B949E&fire=C9D1D9&currStreakLabel=ADBAC7&sideLabels=ADBAC7&currStreakNum=E6EDF3&sideNums=E6EDF3&dates=8B949E" />
-    <img src="https://streak-stats.demolab.com?user=Rajat9632&hide_border=true&background=FFFFFF&stroke=D0D7DE&ring=6E7781&fire=24292F&currStreakLabel=57606A&sideLabels=57606A&currStreakNum=1F2328&sideNums=1F2328&dates=6E7781" alt="GitHub streak" />
-  </picture>
-</div>
-
-<br/>
-
-## ✎ ink arcade
-
-A hidden easter egg tucked into this profile — tic-tac-toe on paper, against an AI that doesn't miss.
-
-<p align="center">
-  <a href="https://rajat9632.github.io/Rajat9632/arcade/index.html">
-    <img src="https://img.shields.io/badge/play-ink_arcade-1F2328?style=flat-square&labelColor=57606A&color=24292F" alt="Play Ink Arcade" />
-  </a>
-</p>
-
-<p align="center">
-  <sub>Challenge the Creator · perfect AI · draw or lose (probably lose)</sub>
-</p>
-
-<br/>
+---
 
 <div align="center">
 
-  <img src="assets/ink-divider.svg" width="320" alt="" />
+<img src="https://komarev.com/ghpvc/?username=Rajat9632&style=for-the-badge&color=0D1117&label=PROFILE+VIEWS" alt="Profile Views" />
 
-  <p>
-    <sub>
-      <b>fun fact under the sketch:</b> that portrait above is pure Unicode —
-      same energy I bring to code: deliberate strokes, a little texture, human.
-    </sub>
-  </p>
+<br/><br/>
 
-  <p>
-    <sub>✦ open to collabs, weird ideas, and projects that matter ✦</sub>
-  </p>
+<sub>✦ open to collabs, weird ideas, and projects that matter ✦</sub>
 
 </div>
