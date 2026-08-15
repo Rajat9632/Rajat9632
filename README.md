@@ -77,13 +77,13 @@
 
 <div align="center">
 
-<a href="https://github.com/Rajat9632">
-  <img height="180" src="https://github-readme-stats-sigma-five.vercel.app/api?username=Rajat9632&show_icons=true&include_all_commits=true&count_private=true&theme=tokyonight&hide_border=true&bg_color=0D1117&ring_color=58A6FF" alt="Rajat's GitHub stats" />
-</a>
-&nbsp;&nbsp;
-<a href="https://github.com/Rajat9632">
-  <img height="180" src="https://github-readme-stats-sigma-five.vercel.app/api/top-langs/?username=Rajat9632&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" alt="Top languages" />
-</a>
+<img src="https://github-profile-summary-cards.vercel.app/api/cards/profile-details?username=Rajat9632&theme=tokyonight" alt="Profile Details" />
+
+<br/>
+
+<img src="https://github-profile-summary-cards.vercel.app/api/cards/stats?username=Rajat9632&theme=tokyonight" alt="Stats" />
+&nbsp;
+<img src="https://github-profile-summary-cards.vercel.app/api/cards/productive-time?username=Rajat9632&theme=tokyonight&utcOffset=5.5" alt="Productive Time" />
 
 <br/><br/>
 
