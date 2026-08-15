@@ -1,19 +1,19 @@
 <div align="center">
 
-<img src="assets/rajat-sketch.jpeg" width="180" style="border-radius: 50%;" alt="Rajat" />
+<img src="assets/rajat-sketch.jpeg" width="170" alt="Rajat" />
 
 # Hey, I'm Rajat 👋
 
 **`ink & code`** — sketching ideas into working software
 
 <a href="https://git.io/typing-svg">
-  <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=16&duration=3500&pause=1200&color=8B949E&center=true&vCenter=true&multiline=true&repeat=true&width=500&height=28&lines=building+with+AI+%C2%B7+Python+%C2%B7+Full-stack;shipping+products%2C+not+just+code;curious+maker+%E2%80%A2+open+to+collabs" alt="Typing SVG" />
+  <img src="https://readme-typing-svg.demolab.com?font=IBM+Plex+Mono&weight=500&size=16&duration=3500&pause=1200&color=8B949E&center=true&vCenter=true&repeat=true&width=500&height=28&lines=building+with+AI+%C2%B7+Python+%C2%B7+Full-stack;shipping+products%2C+not+just+code;curious+maker+%E2%80%A2+open+to+collabs" alt="Typing SVG" />
 </a>
 
 <br/>
 
 [![GitHub](https://img.shields.io/badge/Rajat9632-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Rajat9632)
-[![Portfolio](https://img.shields.io/badge/Ink_Arcade-Play_Now-FF6B6B?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwb2x5Z29uIHBvaW50cz0iNSAzIDIxIDEyIDUgMjEiPjwvcG9seWdvbj48L3N2Zz4=&logoColor=white)](https://rajat9632.github.io/Rajat9632/arcade/index.html)
+[![Play Ink Arcade](https://img.shields.io/badge/Ink_Arcade-Play_Now-FF6B6B?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwb2x5Z29uIHBvaW50cz0iNSAzIDIxIDEyIDUgMjEiPjwvcG9seWdvbj48L3N2Zz4=&logoColor=white)](https://rajat9632.github.io/Rajat9632/arcade/index.html)
 
 </div>
 
@@ -77,9 +77,13 @@
 
 <div align="center">
 
-<img height="180" src="https://github-readme-stats.vercel.app/api?username=Rajat9632&show_icons=true&include_all_commits=true&count_private=true&theme=tokyonight&hide_border=true&bg_color=0D1117&ring_color=58A6FF" alt="Rajat's GitHub stats" />
+<a href="https://github.com/Rajat9632">
+  <img height="180" src="https://github-readme-stats-sigma-five.vercel.app/api?username=Rajat9632&show_icons=true&include_all_commits=true&count_private=true&theme=tokyonight&hide_border=true&bg_color=0D1117&ring_color=58A6FF" alt="Rajat's GitHub stats" />
+</a>
 &nbsp;&nbsp;
-<img height="180" src="https://github-readme-stats.vercel.app/api/top-langs/?username=Rajat9632&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" alt="Top languages" />
+<a href="https://github.com/Rajat9632">
+  <img height="180" src="https://github-readme-stats-sigma-five.vercel.app/api/top-langs/?username=Rajat9632&layout=compact&theme=tokyonight&hide_border=true&bg_color=0D1117" alt="Top languages" />
+</a>
 
 <br/><br/>
 
@@ -87,7 +91,7 @@
 
 <br/><br/>
 
-<img src="https://github-readme-activity-graph.vercel.app/graph?username=Rajat9632&theme=tokyo-night&hide_border=true&bg_color=0D1117&color=58A6FF&line=58A6FF&point=FFFFFF&area=true&area_color=1F6FEB" alt="Activity Graph" />
+<img src="https://github-readme-activity-graph.vercel.app/graph?username=Rajat9632&theme=tokyo-night&hide_border=true&bg_color=0D1117&color=58A6FF&line=58A6FF&point=FFFFFF&area=true&area_color=1F6FEB" alt="Contribution Graph" />
 
 </div>
 
