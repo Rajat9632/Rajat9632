@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="assets/rajat-sketch.jpeg" width="170" alt="Rajat" />
-
 # Hey, I'm Rajat 👋
 
 **`ink & code`** — sketching ideas into working software
